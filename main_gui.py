@@ -7,13 +7,28 @@ from tkinter import messagebox, simpledialog, ttk
 from typing import List, Dict, Optional
 import math
 
-# 添加Windows高DPI支持
+# 添加平台特定支持
 if sys.platform == 'win32':
     try:
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except:
         pass
+# 字体检测函数
+def get_available_font():
+    """获取系统可用的字体"""
+    try:
+        # 确保Tkinter根窗口已创建
+        if not tk._default_root:
+            # 创建临时根窗口来获取字体
+            temp_root = tk.Tk()
+            temp_root.withdraw()  # 隐藏窗口
+        
+        # 直接返回Arial，避免字体检测问题
+        return 'Arial'
+    except Exception as e:
+        # 如果出现任何错误，直接返回Arial
+        return 'Arial'
 
 # 导入游戏组件
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -41,7 +56,8 @@ class AmongUsGUI:
         self.current_player = None
         self.action_steps = 1
         self.max_steps = 4
-        self.font_family = "SimHei"
+        # 统一使用Arial字体，避免跨平台字体问题
+        self.font_family = 'Arial'
         self.current_player_index = 0
         
         # 全局回合变量
@@ -313,16 +329,35 @@ class AmongUsGUI:
         player_scale.bind("<Motion>", lambda event: self.update_player_count())
         
         # 创建开始按钮
-        start_button = tk.Button(
-            player_frame, 
-            text="开始游戏", 
-            font=(self.font_family, 16, "bold"),
-            bg="#4caf50",
-            fg="#ffffff",
-            padx=30,
-            pady=10,
-            command=self.start_game_setup
-        )
+        # 为所有平台创建兼容的按钮
+        if sys.platform == 'darwin':
+            # Mac上使用ttk按钮
+            start_button = ttk.Button(
+                player_frame, 
+                text="开始游戏", 
+                style="Start.TButton",
+                command=self.start_game_setup
+            )
+            style = ttk.Style()
+            style.configure("Start.TButton", 
+                          font=(self.font_family, 16, "bold"),
+                          padding=(30, 10),
+                          background="#4CAF50",
+                          foreground="#FFFFFF")
+        else:
+            # Windows上使用普通按钮
+            start_button = tk.Button(
+                player_frame, 
+                text="开始游戏", 
+                font=(self.font_family, 16, "bold"),
+                bg="#4caf50",
+                fg="#ffffff",
+                padx=30,
+                pady=10,
+                bd=2,
+                relief="flat",
+                command=self.start_game_setup
+            )
         start_button.pack(pady=20)
     
     def update_player_count(self):
@@ -524,16 +559,35 @@ class AmongUsGUI:
             tip_label.pack(pady=30)
             
             # 继续按钮
-            continue_button = tk.Button(
-                role_frame, 
-                text="继续", 
-                font=(self.font_family, 16),
-                bg="#2196f3",
-                fg="#ffffff",
-                padx=30,
-                pady=10,
-                command=self.next_role_info
-            )
+            # 为所有平台创建兼容的按钮
+            if sys.platform == 'darwin':
+                # Mac上使用ttk按钮
+                continue_button = ttk.Button(
+                    role_frame, 
+                    text="继续", 
+                    style="Continue.TButton",
+                    command=self.next_role_info
+                )
+                style = ttk.Style()
+                style.configure("Continue.TButton", 
+                              font=(self.font_family, 16),
+                              padding=(30, 10),
+                              background="#2196F3",
+                              foreground="#FFFFFF")
+            else:
+                # Windows上使用普通按钮
+                continue_button = tk.Button(
+                    role_frame, 
+                    text="继续", 
+                    font=(self.font_family, 16),
+                    bg="#2196f3",
+                    fg="#ffffff",
+                    padx=30,
+                    pady=10,
+                    bd=2,
+                    relief="flat",
+                    command=self.next_role_info
+                )
             continue_button.pack()
         else:
             # 所有玩家都已查看角色，开始游戏
@@ -656,16 +710,35 @@ class AmongUsGUI:
             suspect_listbox.insert(tk.END, player.name)
         
         # 投票按钮
-        vote_button = tk.Button(
-            discussion_window,
-            text="投票",
-            font=(self.font_family, 14),
-            bg="#e94560",
-            fg="#ffffff",
-            padx=20,
-            pady=10,
-            command=lambda: self.vote(discussion_window, suspect_listbox, reporter, victim)
-        )
+        # 为所有平台创建兼容的按钮
+        if sys.platform == 'darwin':
+            # Mac上使用ttk按钮
+            vote_button = ttk.Button(
+                discussion_window,
+                text="投票", 
+                style="Vote.TButton",
+                command=lambda: self.vote(discussion_window, suspect_listbox, reporter, victim)
+            )
+            style = ttk.Style()
+            style.configure("Vote.TButton", 
+                          font=(self.font_family, 14),
+                          padding=(20, 10),
+                          background="#E94560",
+                          foreground="#FFFFFF")
+        else:
+            # Windows上使用普通按钮
+            vote_button = tk.Button(
+                discussion_window,
+                text="投票",
+                font=(self.font_family, 14),
+                bg="#e94560",
+                fg="#ffffff",
+                padx=20,
+                pady=10,
+                bd=2,
+                relief="flat",
+                command=lambda: self.vote(discussion_window, suspect_listbox, reporter, victim)
+            )
         vote_button.pack(pady=20)
 
     def vote(self, window, listbox, reporter, victim):
@@ -855,29 +928,58 @@ class AmongUsGUI:
         btn_frame.pack(pady=15)
         
         # 确认按钮
-        confirm_btn = tk.Button(
-            btn_frame,
-            text="确认穿梭",
-            font=(self.font_family, 12),
-            bg="#00ffff",
-            fg="#000000",
-            padx=20,
-            pady=5,
-            command=confirm_teleport
-        )
-        confirm_btn.pack(side="left", padx=10)
-        
-        # 取消按钮
-        cancel_btn = tk.Button(
-            btn_frame,
-            text="取消",
-            font=(self.font_family, 12),
-            bg="#f44336",
-            fg="#ffffff",
-            padx=20,
-            pady=5,
-            command=teleport_window.destroy
-        )
+        # 为所有平台创建兼容的按钮
+        if sys.platform == 'darwin':
+            # Mac上使用ttk按钮
+            confirm_btn = ttk.Button(
+                btn_frame,
+                text="确认穿梭", 
+                style="Confirm.TButton",
+                command=confirm_teleport
+            )
+            cancel_btn = ttk.Button(
+                btn_frame,
+                text="取消", 
+                style="Cancel.TButton",
+                command=teleport_window.destroy
+            )
+            style = ttk.Style()
+            style.configure("Confirm.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#00FFFF",
+                          foreground="#000000")
+            style.configure("Cancel.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#F44336",
+                          foreground="#FFFFFF")
+        else:
+            # Windows上使用普通按钮
+            confirm_btn = tk.Button(
+                btn_frame,
+                text="确认穿梭",
+                font=(self.font_family, 12),
+                bg="#00ffff",
+                fg="#000000",
+                padx=20,
+                pady=5,
+                bd=2,
+                relief="flat",
+                command=confirm_teleport
+            )
+            cancel_btn = tk.Button(
+                btn_frame,
+                text="取消",
+                font=(self.font_family, 12),
+                bg="#f44336",
+                fg="#ffffff",
+                padx=20,
+                pady=5,
+                bd=2,
+                relief="flat",
+                command=teleport_window.destroy
+            )
         cancel_btn.pack(side="left", padx=10)
     
     def create_game_frame(self):
@@ -1141,14 +1243,33 @@ class AmongUsGUI:
                 self.add_log(f"👻 {self.current_player.name}(旁观)切换视角到{target_room} {body_status}")
                 self.create_game_frame()
             
-            move_btn = tk.Button(
-                action_frame,
-                text="切换到选中房间视角",
-                font=(self.font_family, 10),
-                bg="#0f3460",
-                fg="#ffffff",
-                command=spectator_move_view
-            )
+            # 为所有平台创建兼容的按钮
+            if sys.platform == 'darwin':
+                # Mac上使用ttk按钮
+                move_btn = ttk.Button(
+                    action_frame,
+                    text="切换到选中房间视角", 
+                    style="Move.TButton",
+                    command=spectator_move_view
+                )
+                style = ttk.Style()
+                style.configure("Move.TButton", 
+                              font=(self.font_family, 10),
+                              padding=(5, 3),
+                              background="#0F3460",
+                              foreground="#FFFFFF")
+            else:
+                # Windows上使用普通按钮
+                move_btn = tk.Button(
+                    action_frame,
+                    text="切换到选中房间视角",
+                    font=(self.font_family, 10),
+                    bg="#0f3460",
+                    fg="#ffffff",
+                    bd=2,
+                    relief="flat",
+                    command=spectator_move_view
+                )
             move_btn.pack(fill="x", pady=5)
             
             # 禁用所有操作按钮的提示
@@ -1178,18 +1299,45 @@ class AmongUsGUI:
                 else:
                     meeting_btn_text = f"发起紧急会议（仅{self.meeting_room}可发起）"
             
-            emergency_meeting_btn = tk.Button(
-                action_frame,
-                text=meeting_btn_text,
-                font=(self.font_family, 12),
-                bg=meeting_btn_bg,
-                fg="#ffffff",
-                padx=10,
-                pady=5,
-                width=15,
-                state=meeting_btn_state,
-                command=lambda: self.handle_emergency_meeting(self.current_player)
-            )
+            # 为所有平台创建兼容的按钮
+            if sys.platform == 'darwin':
+                # Mac上使用ttk按钮
+                emergency_meeting_btn = ttk.Button(
+                    action_frame,
+                    text=meeting_btn_text, 
+                    style="Emergency.TButton",
+                    state=meeting_btn_state,
+                    command=lambda: self.handle_emergency_meeting(self.current_player)
+                )
+                style = ttk.Style()
+                if meeting_btn_state == "normal":
+                    style.configure("Emergency.TButton", 
+                                  font=(self.font_family, 12),
+                                  padding=(10, 5),
+                                  background="#FF9800",
+                                  foreground="#FFFFFF")
+                else:
+                    style.configure("Emergency.TButton", 
+                                  font=(self.font_family, 12),
+                                  padding=(10, 5),
+                                  background="#CCCCCC",
+                                  foreground="#999999")
+            else:
+                # Windows上使用普通按钮
+                emergency_meeting_btn = tk.Button(
+                    action_frame,
+                    text=meeting_btn_text,
+                    font=(self.font_family, 12),
+                    bg=meeting_btn_bg,
+                    fg="#ffffff",
+                    padx=10,
+                    pady=5,
+                    width=15,
+                    bd=2,
+                    relief="flat",
+                    state=meeting_btn_state,
+                    command=lambda: self.handle_emergency_meeting(self.current_player)
+                )
             emergency_meeting_btn.pack(fill="x", pady=5)
             
             # 根据角色显示不同按钮
@@ -1205,17 +1353,36 @@ class AmongUsGUI:
                     )
                     task_label.pack(fill="x", pady=5)
                 else:
-                    task_button = tk.Button(
-                        action_frame, 
-                        text="完成任务", 
-                        font=(self.font_family, 12),
-                        bg="#4caf50",
-                        fg="#ffffff",
-                        padx=10,
-                        pady=5,
-                        width=15,
-                        command=lambda: self.handle_complete_task(self.current_player)
-                    )
+                    # 为所有平台创建兼容的按钮
+                    if sys.platform == 'darwin':
+                        # Mac上使用ttk按钮
+                        task_button = ttk.Button(
+                            action_frame, 
+                            text="完成任务", 
+                            style="Task.TButton",
+                            command=lambda: self.handle_complete_task(self.current_player)
+                        )
+                        style = ttk.Style()
+                        style.configure("Task.TButton", 
+                                      font=(self.font_family, 12),
+                                      padding=(10, 5),
+                                      background="#4CAF50",
+                                      foreground="#FFFFFF")
+                    else:
+                        # Windows上使用普通按钮
+                        task_button = tk.Button(
+                            action_frame, 
+                            text="完成任务", 
+                            font=(self.font_family, 12),
+                            bg="#4caf50",
+                            fg="#ffffff",
+                            padx=10,
+                            pady=5,
+                            width=15,
+                            bd=2,
+                            relief="flat",
+                            command=lambda: self.handle_complete_task(self.current_player)
+                        )
                     task_button.pack(fill="x", pady=5)
             elif isinstance(self.current_player.role, Impostor):
                 # 内鬼穿梭按钮
@@ -1243,19 +1410,45 @@ class AmongUsGUI:
                     teleport_fg = "#ffffff"
                     teleport_text = "穿梭（步数已达上限）"
                 
-                # 创建穿梭按钮
-                teleport_button = tk.Button(
-                    action_frame, 
-                    text=teleport_text, 
-                    font=(self.font_family, 12),
-                    bg=teleport_bg,
-                    fg=teleport_fg,
-                    padx=10,
-                    pady=5,
-                    width=15,
-                    state=teleport_state,
-                    command=lambda: self.teleport_to_room(self.current_player)
-                )
+                # 为所有平台创建兼容的按钮
+                if sys.platform == 'darwin':
+                    # Mac上使用ttk按钮
+                    teleport_button = ttk.Button(
+                        action_frame, 
+                        text=teleport_text, 
+                        style="Teleport.TButton",
+                        state=teleport_state,
+                        command=lambda: self.teleport_to_room(self.current_player)
+                    )
+                    style = ttk.Style()
+                    if teleport_state == "normal":
+                        style.configure("Teleport.TButton", 
+                                      font=(self.font_family, 12),
+                                      padding=(10, 5),
+                                      background="#00FFFF",
+                                      foreground="#000000")
+                    else:
+                        style.configure("Teleport.TButton", 
+                                      font=(self.font_family, 12),
+                                      padding=(10, 5),
+                                      background="#CCCCCC",
+                                      foreground="#999999")
+                else:
+                    # Windows上使用普通按钮
+                    teleport_button = tk.Button(
+                        action_frame, 
+                        text=teleport_text, 
+                        font=(self.font_family, 12),
+                        bg=teleport_bg,
+                        fg=teleport_fg,
+                        padx=10,
+                        pady=5,
+                        width=15,
+                        bd=2,
+                        relief="flat",
+                        state=teleport_state,
+                        command=lambda: self.teleport_to_room(self.current_player)
+                    )
                 teleport_button.pack(fill="x", pady=5)
                 
                 # 内鬼击杀判定
@@ -1270,17 +1463,36 @@ class AmongUsGUI:
                         )
                         kill_label.pack(fill="x", pady=5)
                     else:
-                        kill_button = tk.Button(
-                            action_frame, 
-                            text="击杀船员", 
-                            font=(self.font_family, 12),
-                            bg="#e94560",
-                            fg="#ffffff",
-                            padx=10,
-                            pady=5,
-                            width=15,
-                            command=lambda: self.handle_kill(self.current_player)
-                        )
+                        # 为所有平台创建兼容的按钮
+                        if sys.platform == 'darwin':
+                            # Mac上使用ttk按钮
+                            kill_button = ttk.Button(
+                                action_frame, 
+                                text="击杀船员", 
+                                style="Kill.TButton",
+                                command=lambda: self.handle_kill(self.current_player)
+                            )
+                            style = ttk.Style()
+                            style.configure("Kill.TButton", 
+                                          font=(self.font_family, 12),
+                                          padding=(10, 5),
+                                          background="#E94560",
+                                          foreground="#FFFFFF")
+                        else:
+                            # Windows上使用普通按钮
+                            kill_button = tk.Button(
+                                action_frame, 
+                                text="击杀船员", 
+                                font=(self.font_family, 12),
+                                bg="#e94560",
+                                fg="#ffffff",
+                                padx=10,
+                                pady=5,
+                                width=15,
+                                bd=2,
+                                relief="flat",
+                                command=lambda: self.handle_kill(self.current_player)
+                            )
                         kill_button.pack(fill="x", pady=5)
                 elif self.global_round == 1:
                     notice_label = tk.Label(
@@ -1312,17 +1524,36 @@ class AmongUsGUI:
                     )
                     sabotage_label.pack(fill="x", pady=5)
                 else:
-                    sabotage_button = tk.Button(
-                        action_frame, 
-                        text="破坏系统", 
-                        font=(self.font_family, 12),
-                        bg="#9c27b0",
-                        fg="#ffffff",
-                        padx=10,
-                        pady=5,
-                        width=15,
-                        command=lambda: self.handle_sabotage(self.current_player)
-                    )
+                    # 为所有平台创建兼容的按钮
+                    if sys.platform == 'darwin':
+                        # Mac上使用ttk按钮
+                        sabotage_button = ttk.Button(
+                            action_frame, 
+                            text="破坏系统", 
+                            style="Sabotage.TButton",
+                            command=lambda: self.handle_sabotage(self.current_player)
+                        )
+                        style = ttk.Style()
+                        style.configure("Sabotage.TButton", 
+                                      font=(self.font_family, 12),
+                                      padding=(10, 5),
+                                      background="#9C27B0",
+                                      foreground="#FFFFFF")
+                    else:
+                        # Windows上使用普通按钮
+                        sabotage_button = tk.Button(
+                            action_frame, 
+                            text="破坏系统", 
+                            font=(self.font_family, 12),
+                            bg="#9c27b0",
+                            fg="#ffffff",
+                            padx=10,
+                            pady=5,
+                            width=15,
+                            bd=2,
+                            relief="flat",
+                            command=lambda: self.handle_sabotage(self.current_player)
+                        )
                     sabotage_button.pack(fill="x", pady=5)
             
                         # 报告尸体按钮（根据尸体清理状态更新）
@@ -1343,33 +1574,79 @@ class AmongUsGUI:
                 report_state = "normal"
                 report_bg = "#ff9800"
             
-            report_button = tk.Button(
-                action_frame, 
-                text="报告尸体", 
-                font=(self.font_family, 12),
-                bg=report_bg,
-                fg="#ffffff",
-                padx=10,
-                pady=5,
-                width=15,
-                state=report_state,
-                command=lambda: self.handle_report(self.current_player)
-            )
+            # 为所有平台创建兼容的按钮
+            if sys.platform == 'darwin':
+                # Mac上使用ttk按钮
+                report_button = ttk.Button(
+                    action_frame, 
+                    text="报告尸体", 
+                    style="Report.TButton",
+                    state=report_state,
+                    command=lambda: self.handle_report(self.current_player)
+                )
+                style = ttk.Style()
+                if report_state == "normal":
+                    style.configure("Report.TButton", 
+                                  font=(self.font_family, 12),
+                                  padding=(10, 5),
+                                  background="#FF9800",
+                                  foreground="#FFFFFF")
+                else:
+                    style.configure("Report.TButton", 
+                                  font=(self.font_family, 12),
+                                  padding=(10, 5),
+                                  background="#CCCCCC",
+                                  foreground="#999999")
+            else:
+                # Windows上使用普通按钮
+                report_button = tk.Button(
+                    action_frame, 
+                    text="报告尸体", 
+                    font=(self.font_family, 12),
+                    bg=report_bg,
+                    fg="#ffffff",
+                    padx=10,
+                    pady=5,
+                    width=15,
+                    bd=2,
+                    relief="flat",
+                    state=report_state,
+                    command=lambda: self.handle_report(self.current_player)
+                )
             report_button.pack(fill="x", pady=5)
         
         # 结束回合/切换视角按钮（所有玩家都显示，死亡玩家切换旁观视角）
         next_button_text = "切换旁观视角" if self.current_player in self.spectator_players else "结束回合"
-        next_button = tk.Button(
-            action_frame, 
-            text=next_button_text, 
-            font=(self.font_family, 12),
-            bg="#795548",
-            fg="#ffffff",
-            padx=10,
-            pady=5,
-            width=15,
-            command=self.switch_to_next_player
-        )
+        # 为所有平台创建兼容的按钮
+        if sys.platform == 'darwin':
+            # Mac上使用ttk按钮
+            next_button = ttk.Button(
+                action_frame, 
+                text=next_button_text, 
+                style="Next.TButton",
+                command=self.switch_to_next_player
+            )
+            style = ttk.Style()
+            style.configure("Next.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(10, 5),
+                          background="#795548",
+                          foreground="#FFFFFF")
+        else:
+            # Windows上使用普通按钮
+            next_button = tk.Button(
+                action_frame, 
+                text=next_button_text, 
+                font=(self.font_family, 12),
+                bg="#795548",
+                fg="#ffffff",
+                padx=10,
+                pady=5,
+                width=15,
+                bd=2,
+                relief="flat",
+                command=self.switch_to_next_player
+            )
         next_button.pack(fill="x", pady=5)
         
         # 底部日志区域
@@ -1467,32 +1744,70 @@ class AmongUsGUI:
                 state = "disabled"
                 bg_color = "#333333"
             
-            # 创建按钮，使用Frame包裹以实现圆形效果
-            button_frame = tk.Frame(
-                map_frame, 
-                bg=bg_color, 
-                width=50, 
-                height=50,
-                highlightbackground="#ffffff",
-                highlightthickness=2,
-                bd=0
-            )
-            button_frame.place(x=x-25, y=y-25, anchor="center")
-            
-            # 创建按钮内容
-            button = tk.Button(
-                button_frame, 
-                text=location, 
-                bg=bg_color,
-                fg=fg_color,
-                font=(self.font_family, 10, "bold"),
-                width=8,
-                height=2,
-                bd=0,
-                relief="flat",
-                state=state,
-                command=lambda loc=location: self.on_location_click(loc)
-            )
+            # 为Mac平台调整颜色和样式
+            if sys.platform == 'darwin':
+                # Mac上使用更适合的颜色和样式
+                if is_current:
+                    bg_color = "#4CAF50"  # 绿色
+                    fg_color = "#000000"  # 黑色
+                else:
+                    bg_color = "#2196F3"  # 蓝色
+                    fg_color = "#FFFFFF"  # 白色
+                
+                # 创建按钮框架
+                button_frame = tk.Frame(
+                    map_frame, 
+                    bg=bg_color, 
+                    width=60, 
+                    height=60,
+                    highlightbackground="#FFFFFF",
+                    highlightthickness=2,
+                    bd=0
+                )
+                button_frame.place(x=x-30, y=y-30, anchor="center")
+                
+                # 创建按钮 - Mac上使用ttk按钮
+                button = ttk.Button(
+                    button_frame, 
+                    text=location,
+                    style="Mac.TButton",
+                    command=lambda loc=location: self.on_location_click(loc)
+                )
+                # 为ttk按钮设置样式
+                style = ttk.Style()
+                style.configure("Mac.TButton", 
+                              font=(self.font_family, 10, "bold"),
+                              padding=(5, 3))
+                if state == "disabled":
+                    style.configure("Mac.TButton", background="#CCCCCC", foreground="#999999")
+                else:
+                    style.configure("Mac.TButton", background=bg_color, foreground=fg_color)
+            else:
+                # Windows和其他平台保持原有样式
+                button_frame = tk.Frame(
+                    map_frame, 
+                    bg=bg_color, 
+                    width=50, 
+                    height=50,
+                    highlightbackground="#ffffff",
+                    highlightthickness=2,
+                    bd=0
+                )
+                button_frame.place(x=x-25, y=y-25, anchor="center")
+                
+                button = tk.Button(
+                    button_frame, 
+                    text=location, 
+                    bg=bg_color,
+                    fg=fg_color,
+                    font=(self.font_family, 10, "bold"),
+                    width=8,
+                    height=2,
+                    bd=0,
+                    relief="flat",
+                    state=state,
+                    command=lambda loc=location: self.on_location_click(loc)
+                )
             button.pack(fill="both", expand=True)
             
             # 存储按钮引用
