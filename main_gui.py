@@ -339,6 +339,7 @@ class AmongUsGUI:
                 command=self.start_game_setup
             )
             style = ttk.Style()
+            style.theme_use('clam')
             style.configure("Start.TButton", 
                           font=(self.font_family, 16, "bold"),
                           padding=(30, 10),
