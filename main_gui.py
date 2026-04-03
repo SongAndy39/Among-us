@@ -339,12 +339,16 @@ class AmongUsGUI:
                 command=self.start_game_setup
             )
             style = ttk.Style()
-            style.theme_use('clam')
+            style.theme_use('alt')
             style.configure("Start.TButton", 
                           font=(self.font_family, 16, "bold"),
                           padding=(30, 10),
                           background="#4CAF50",
                           foreground="#FFFFFF")
+            style.map("Start.TButton",
+                      background=[("active", "#4CAF50"),("!active", "#4CAF50")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+
         else:
             # Windows上使用普通按钮
             start_button = tk.Button(
@@ -575,6 +579,9 @@ class AmongUsGUI:
                               padding=(30, 10),
                               background="#2196F3",
                               foreground="#FFFFFF")
+                style.map("Continue.TButton",
+                      background=[("active", "#2196F3"),("!active", "#2196F3")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
             else:
                 # Windows上使用普通按钮
                 continue_button = tk.Button(
@@ -726,6 +733,9 @@ class AmongUsGUI:
                           padding=(20, 10),
                           background="#E94560",
                           foreground="#FFFFFF")
+            style.map("Vote.TButton",
+                      background=[("active", "#E94560"),("!active", "#E94560")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
         else:
             # Windows上使用普通按钮
             vote_button = tk.Button(
@@ -950,11 +960,17 @@ class AmongUsGUI:
                           padding=(20, 5),
                           background="#00FFFF",
                           foreground="#000000")
+            style.map("Confirm.TButton",
+                      background=[("active", "#00FFFF"),("!active", "#00FFFF")],
+                      foreground=[("active", "#000000"),("!active", "#000000")])
             style.configure("Cancel.TButton", 
                           font=(self.font_family, 12),
                           padding=(20, 5),
                           background="#F44336",
                           foreground="#FFFFFF")
+            style.map("Cancel.TButton",
+                      background=[("active", "#F44336"),("!active", "#F44336")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
         else:
             # Windows上使用普通按钮
             confirm_btn = tk.Button(
@@ -1259,6 +1275,9 @@ class AmongUsGUI:
                               padding=(5, 3),
                               background="#0F3460",
                               foreground="#FFFFFF")
+                style.map("Move.TButton",
+                      background=[("active", "#0F3460"),("!active", "#0F3460")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
             else:
                 # Windows上使用普通按钮
                 move_btn = tk.Button(
@@ -1317,12 +1336,18 @@ class AmongUsGUI:
                                   padding=(10, 5),
                                   background="#FF9800",
                                   foreground="#FFFFFF")
+                    style.map("Emergency.TButton",
+                      background=[("active", "#FF9800"),("!active", "#FF9800")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
                 else:
                     style.configure("Emergency.TButton", 
                                   font=(self.font_family, 12),
                                   padding=(10, 5),
                                   background="#CCCCCC",
                                   foreground="#999999")
+                    style.map("Emergency.TButton",
+                      background=[("active", "#CCCCCC"),("!active", "#CCCCCC")],
+                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
             else:
                 # Windows上使用普通按钮
                 emergency_meeting_btn = tk.Button(
@@ -1369,6 +1394,9 @@ class AmongUsGUI:
                                       padding=(10, 5),
                                       background="#4CAF50",
                                       foreground="#FFFFFF")
+                        style.map("Task.TButton",
+                                      background=[("active", "#4CAF50"),("!active", "#4CAF50")],
+                                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
                     else:
                         # Windows上使用普通按钮
                         task_button = tk.Button(
@@ -1428,12 +1456,18 @@ class AmongUsGUI:
                                       padding=(10, 5),
                                       background="#00FFFF",
                                       foreground="#000000")
+                        style.map("Teleport.TButton",
+                                      background=[("active", "#00FFFF"),("!active", "#00FFFF")],
+                                      foreground=[("active", "#000000"),("!active", "#000000")])
                     else:
                         style.configure("Teleport.TButton", 
                                       font=(self.font_family, 12),
                                       padding=(10, 5),
                                       background="#CCCCCC",
                                       foreground="#999999")
+                        style.map("Teleport.TButton",
+                                      background=[("active", "#00FFFF"),("!active", "#00FFFF")],
+                                      foreground=[("active", "#000000"),("!active", "#000000")])
                 else:
                     # Windows上使用普通按钮
                     teleport_button = tk.Button(
@@ -1479,6 +1513,9 @@ class AmongUsGUI:
                                           padding=(10, 5),
                                           background="#E94560",
                                           foreground="#FFFFFF")
+                            style.map("Kill.TButton",
+                                          background=[("active", "#E94560"),("!active", "#E94560")],
+                                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
                         else:
                             # Windows上使用普通按钮
                             kill_button = tk.Button(
@@ -1540,6 +1577,9 @@ class AmongUsGUI:
                                       padding=(10, 5),
                                       background="#9C27B0",
                                       foreground="#FFFFFF")
+                        style.map("Sabotage.TButton",
+                                      background=[("active", "#9C27B0"),("!active", "#9C27B0")],
+                                      foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
                     else:
                         # Windows上使用普通按钮
                         sabotage_button = tk.Button(
@@ -1592,12 +1632,23 @@ class AmongUsGUI:
                                   padding=(10, 5),
                                   background="#FF9800",
                                   foreground="#FFFFFF")
+                    style.map("Report.TButton",
+                                  background=[("active", "#FF9800"),("!active", "#FF9800")],
+                                  foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
                 else:
                     style.configure("Report.TButton", 
                                   font=(self.font_family, 12),
                                   padding=(10, 5),
                                   background="#CCCCCC",
                                   foreground="#999999")
+                    style.map("Report.TButton",
+                                  background=[("active", "#CCCCCC"),("!active", "#CCCCCC")],
+                                  foreground=[("active", "#999999"),("!active", "#999999")])
+                # 禁用状态的特殊处理
+                if report_state == "disabled":
+                    style.map("Report.TButton",
+                                  background=[("disabled", "#CCCCCC")],
+                                  foreground=[("disabled", "#999999")])
             else:
                 # Windows上使用普通按钮
                 report_button = tk.Button(
@@ -1633,6 +1684,9 @@ class AmongUsGUI:
                           padding=(10, 5),
                           background="#795548",
                           foreground="#FFFFFF")
+            style.map("Next.TButton",
+                          background=[("active", "#795548"),("!active", "#795548")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
         else:
             # Windows上使用普通按钮
             next_button = tk.Button(
@@ -1781,8 +1835,14 @@ class AmongUsGUI:
                               padding=(5, 3))
                 if state == "disabled":
                     style.configure("Mac.TButton", background="#CCCCCC", foreground="#999999")
+                    style.map("Mac.TButton",
+                              background=[("disabled", "#CCCCCC")],
+                              foreground=[("disabled", "#999999")])
                 else:
                     style.configure("Mac.TButton", background=bg_color, foreground=fg_color)
+                    style.map("Mac.TButton",
+                              background=[("active", bg_color),("!active", bg_color)],
+                              foreground=[("active", fg_color),("!active", fg_color)])
             else:
                 # Windows和其他平台保持原有样式
                 button_frame = tk.Frame(
@@ -2298,26 +2358,56 @@ class AmongUsGUI:
         button_frame = tk.Frame(kill_window, bg="#1a1a2e")
         button_frame.pack(pady=15)
 
-        confirm_btn = tk.Button(
-            button_frame, 
-            text="确认击杀", 
-            font=(self.font_family, 12),
-            bg="#e94560",
-            fg="#ffffff",
-            padx=20,
-            command=confirm_kill
-        )
+        if sys.platform == 'darwin':
+            confirm_btn = ttk.Button(
+                button_frame, 
+                text="确认击杀", 
+                style="ConfirmKill.TButton",
+                command=confirm_kill
+            )
+            cancel_btn = ttk.Button(
+                button_frame, 
+                text="取消", 
+                style="CancelKill.TButton",
+                command=kill_window.destroy
+            )
+            style = ttk.Style()
+            style.configure("ConfirmKill.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#E94560",
+                          foreground="#FFFFFF")
+            style.map("ConfirmKill.TButton",
+                          background=[("active", "#E94560"),("!active", "#E94560")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+            style.configure("CancelKill.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#F44336",
+                          foreground="#FFFFFF")
+            style.map("CancelKill.TButton",
+                          background=[("active", "#F44336"),("!active", "#F44336")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+        else:
+            confirm_btn = tk.Button(
+                button_frame, 
+                text="确认击杀", 
+                font=(self.font_family, 12),
+                bg="#e94560",
+                fg="#ffffff",
+                padx=20,
+                command=confirm_kill
+            )
+            cancel_btn = tk.Button(
+                button_frame, 
+                text="取消", 
+                font=(self.font_family, 12),
+                bg="#f44336",
+                fg="#ffffff",
+                padx=20,
+                command=kill_window.destroy
+            )
         confirm_btn.pack(side="left", padx=10)
-
-        cancel_btn = tk.Button(
-            button_frame, 
-            text="取消", 
-            font=(self.font_family, 12),
-            bg="#f44336",
-            fg="#ffffff",
-            padx=20,
-            command=kill_window.destroy
-        )
         cancel_btn.pack(side="left", padx=10)
 
     def handle_sabotage(self, player):
@@ -2423,26 +2513,56 @@ class AmongUsGUI:
             else:
                 messagebox.showwarning("警告", "请选择一个尸体")
         
-        confirm_btn = tk.Button(
-            button_frame,
-            text="确认报告", 
-            font=(self.font_family, 12),
-            bg="#4caf50",
-            fg="#ffffff",
-            padx=20,
-            command=confirm_selection
-        )
+        if sys.platform == 'darwin':
+            confirm_btn = ttk.Button(
+                button_frame,
+                text="确认报告", 
+                style="ConfirmReport.TButton",
+                command=confirm_selection
+            )
+            cancel_btn = ttk.Button(
+                button_frame,
+                text="取消", 
+                style="CancelReport.TButton",
+                command=selection_window.destroy
+            )
+            style = ttk.Style()
+            style.configure("ConfirmReport.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#4CAF50",
+                          foreground="#FFFFFF")
+            style.map("ConfirmReport.TButton",
+                          background=[("active", "#4CAF50"),("!active", "#4CAF50")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+            style.configure("CancelReport.TButton", 
+                          font=(self.font_family, 12),
+                          padding=(20, 5),
+                          background="#F44336",
+                          foreground="#FFFFFF")
+            style.map("CancelReport.TButton",
+                          background=[("active", "#F44336"),("!active", "#F44336")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+        else:
+            confirm_btn = tk.Button(
+                button_frame,
+                text="确认报告", 
+                font=(self.font_family, 12),
+                bg="#4caf50",
+                fg="#ffffff",
+                padx=20,
+                command=confirm_selection
+            )
+            cancel_btn = tk.Button(
+                button_frame,
+                text="取消", 
+                font=(self.font_family, 12),
+                bg="#f44336",
+                fg="#ffffff",
+                padx=20,
+                command=selection_window.destroy
+            )
         confirm_btn.pack(side="left", padx=10)
-        
-        cancel_btn = tk.Button(
-            button_frame,
-            text="取消", 
-            font=(self.font_family, 12),
-            bg="#f44336",
-            fg="#ffffff",
-            padx=20,
-            command=selection_window.destroy
-        )
         cancel_btn.pack(side="left", padx=10)
     
     def _execute_report(self, player, victim):
@@ -2569,15 +2689,34 @@ class AmongUsGUI:
                         messagebox.showwarning("警告", "请做出选择")
                 
                 # 创建确认按钮
-                confirm_btn = tk.Button(
-                    button_frame,
-                    text="确认投票", 
-                    font=(self.font_family, 12),
-                    bg="#4caf50",
-                    fg="#ffffff",
-                    padx=20,
-                    command=confirm_vote
-                )
+                if sys.platform == 'darwin':
+                    # Mac上使用ttk按钮
+                    confirm_btn = ttk.Button(
+                        button_frame,
+                        text="确认投票", 
+                        style="ConfirmVote.TButton",
+                        command=confirm_vote
+                    )
+                    style = ttk.Style()
+                    style.configure("ConfirmVote.TButton", 
+                                  font=(self.font_family, 12),
+                                  padding=(20, 5),
+                                  background="#4CAF50",
+                                  foreground="#FFFFFF")
+                    style.map("ConfirmVote.TButton",
+                                  background=[("active", "#4CAF50"),("!active", "#4CAF50")],
+                                  foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+                else:
+                    # Windows上使用普通按钮
+                    confirm_btn = tk.Button(
+                        button_frame,
+                        text="确认投票", 
+                        font=(self.font_family, 12),
+                        bg="#4caf50",
+                        fg="#ffffff",
+                        padx=20,
+                        command=confirm_vote
+                    )
                 confirm_btn.pack()
             
             vote_next_player()
@@ -2647,30 +2786,66 @@ class AmongUsGUI:
             else:
                 # 继续游戏按钮
                 start_vote_button.destroy()
-                continue_button = tk.Button(
-                    discussion_frame, 
-                    text="继续游戏", 
-                    font=(self.font_family, 14),
-                    bg="#2196f3",
-                    fg="#ffffff",
-                    padx=30,
-                    pady=10,
-                    command=self.create_game_frame
-                )
+                if sys.platform == 'darwin':
+                    continue_button = ttk.Button(
+                        discussion_frame, 
+                        text="继续游戏", 
+                        style="ContinueGame.TButton",
+                        command=self.create_game_frame
+                    )
+                    style = ttk.Style()
+                    style.configure("ContinueGame.TButton", 
+                                  font=(self.font_family, 14),
+                                  padding=(30, 10),
+                                  background="#2196F3",
+                                  foreground="#FFFFFF")
+                    style.map("ContinueGame.TButton",
+                                  background=[("active", "#2196F3"),("!active", "#2196F3")],
+                                  foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+                else:
+                    continue_button = tk.Button(
+                        discussion_frame, 
+                        text="继续游戏", 
+                        font=(self.font_family, 14),
+                        bg="#2196f3",
+                        fg="#ffffff",
+                        padx=30,
+                        pady=10,
+                        command=self.create_game_frame
+                    )
                 continue_button.pack(pady=20)
                 
         
         # 开始投票按钮
-        start_vote_button = tk.Button(
-            discussion_frame, 
-            text="开始投票", 
-            font=(self.font_family, 14),
-            bg="#ff9800",
-            fg="#ffffff",
-            padx=30,
-            pady=10,
-            command=collect_votes
-        )
+        if sys.platform == 'darwin':
+            # Mac上使用ttk按钮
+            start_vote_button = ttk.Button(
+                discussion_frame, 
+                text="开始投票", 
+                style="StartVote.TButton",
+                command=collect_votes
+            )
+            style = ttk.Style()
+            style.configure("StartVote.TButton", 
+                          font=(self.font_family, 14),
+                          padding=(30, 10),
+                          background="#FF9800",
+                          foreground="#FFFFFF")
+            style.map("StartVote.TButton",
+                          background=[("active", "#FF9800"),("!active", "#FF9800")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+        else:
+            # Windows上使用普通按钮
+            start_vote_button = tk.Button(
+                discussion_frame, 
+                text="开始投票", 
+                font=(self.font_family, 14),
+                bg="#ff9800",
+                fg="#ffffff",
+                padx=30,
+                pady=10,
+                command=collect_votes
+            )
         start_vote_button.pack(pady=20)
                 
     def show_game_over(self):
@@ -2751,29 +2926,58 @@ class AmongUsGUI:
         button_frame.pack(pady=40)
         
         # 重新开始按钮
-        restart_button = tk.Button(
-            button_frame, 
-            text="重新开始", 
-            font=(self.font_family, 14),
-            bg="#4caf50",
-            fg="#ffffff",
-            padx=30,
-            pady=10,
-            command=self.create_main_frame
-        )
+        if sys.platform == 'darwin':
+            restart_button = ttk.Button(
+                button_frame, 
+                text="重新开始", 
+                style="Restart.TButton",
+                command=self.create_main_frame
+            )
+            quit_button = ttk.Button(
+                button_frame, 
+                text="退出游戏", 
+                style="Quit.TButton",
+                command=self.root.quit
+            )
+            style = ttk.Style()
+            style.configure("Restart.TButton", 
+                          font=(self.font_family, 14),
+                          padding=(30, 10),
+                          background="#4CAF50",
+                          foreground="#FFFFFF")
+            style.map("Restart.TButton",
+                          background=[("active", "#4CAF50"),("!active", "#4CAF50")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+            style.configure("Quit.TButton", 
+                          font=(self.font_family, 14),
+                          padding=(30, 10),
+                          background="#F44336",
+                          foreground="#FFFFFF")
+            style.map("Quit.TButton",
+                          background=[("active", "#F44336"),("!active", "#F44336")],
+                          foreground=[("active", "#FFFFFF"),("!active", "#FFFFFF")])
+        else:
+            restart_button = tk.Button(
+                button_frame, 
+                text="重新开始", 
+                font=(self.font_family, 14),
+                bg="#4caf50",
+                fg="#ffffff",
+                padx=30,
+                pady=10,
+                command=self.create_main_frame
+            )
+            quit_button = tk.Button(
+                button_frame, 
+                text="退出游戏", 
+                font=(self.font_family, 14),
+                bg="#f44336",
+                fg="#ffffff",
+                padx=30,
+                pady=10,
+                command=self.root.quit
+            )
         restart_button.pack(side="left", padx=20)
-        
-        # 退出按钮
-        quit_button = tk.Button(
-            button_frame, 
-            text="退出游戏", 
-            font=(self.font_family, 14),
-            bg="#f44336",
-            fg="#ffffff",
-            padx=30,
-            pady=10,
-            command=self.root.quit
-        )
         quit_button.pack(side="left", padx=20)
 
 def main():
