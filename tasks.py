@@ -107,17 +107,77 @@ class WireFixTask(Task):
                 width=3
             )
             
-            # 电线起始/结束位置配置（左边3根，右边3根）
-            left_wires = [
-                (150, 200),  # 红色线起点
-                (150, 280),  # 绿色线起点
-                (150, 120)   # 蓝色线起点
-            ]
-            right_wires = [
-                (550, 120),  # 红色线终点
-                (550, 200),  # 绿色线终点
-                (550, 280)   # 蓝色线终点
-            ]
+            def generate_wire_positions():
+                """随机生成电线端点位置"""
+                # 灰色底座范围：(50, 50) 到 (650, 350)
+                min_x, min_y = 50, 50
+                max_x, max_y = 650, 350
+                
+                # 左右区域边界（确保起点在左半部分，终点在右半部分）
+                left_bound = (min_x + 50, max_x // 2 - 50)
+                right_bound = (max_x // 2 + 50, max_x - 50)
+                y_range = (min_y + 50, max_y - 50)
+                
+                all_positions = []
+                
+                def distance(p1, p2):
+                    """计算两点间距离"""
+                    return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+                
+                def is_valid_position(pos, existing_positions, min_distance=70):
+                    """检查位置是否有效（与其他位置保持最小距离）"""
+                    for p in existing_positions:
+                        if distance(pos, p) < min_distance:
+                            return False
+                    return True
+                
+                def generate_valid_position(bound_x, bound_y, existing_positions):
+                    """生成一个有效的随机位置"""
+                    attempts = 0
+                    max_attempts = 100
+                    while attempts < max_attempts:
+                        x = random.randint(bound_x[0], bound_x[1])
+                        y = random.randint(bound_y[0], bound_y[1])
+                        if is_valid_position((x, y), existing_positions):
+                            return (x, y)
+                        attempts += 1
+                    # 如果无法找到有效位置，返回一个默认位置
+                    return (bound_x[0], bound_y[0])
+                
+                # 生成3对电线位置
+                left_wires = []
+                right_wires = []
+                
+                for _ in range(3):
+                    # 生成起点（左侧区域）
+                    start_pos = generate_valid_position(left_bound, y_range, all_positions)
+                    left_wires.append(start_pos)
+                    all_positions.append(start_pos)
+                    
+                    # 生成终点（右侧区域），确保与起点距离约为400像素
+                    # 计算目标区域：以起点为圆心，400像素为半径的右侧区域
+                    attempts = 0
+                    end_pos = None
+                    while attempts < 100:
+                        candidate = generate_valid_position(right_bound, y_range, all_positions)
+                        d = distance(start_pos, candidate)
+                        # 接受距离在380-420像素之间的位置
+                        if 380 <= d <= 420:
+                            end_pos = candidate
+                            break
+                        attempts += 1
+                    
+                    if end_pos is None:
+                        # 如果找不到合适位置，生成一个右侧的有效位置
+                        end_pos = generate_valid_position(right_bound, y_range, all_positions)
+                    
+                    right_wires.append(end_pos)
+                    all_positions.append(end_pos)
+                
+                return left_wires, right_wires
+            
+            # 生成随机电线位置
+            left_wires, right_wires = generate_wire_positions()
             
             # 绘制电线端点（圆形）
             def draw_wire_endpoints():
@@ -779,7 +839,7 @@ class BodyScanTask(Task):
         canvas.after(1000, lambda: self._cleanup_window(self.task_window))
 class DownloadDataTask(Task):
     """通讯室下载数据任务（带图形化交互）"""
-    
+
     def __init__(self):
         super().__init__("下载数据", "通讯室", 1)
         self.task_completed = False  # 记录GUI任务是否完成
@@ -791,13 +851,19 @@ class DownloadDataTask(Task):
         self.usb_plugged = False     # U盘是否插入接口
         self.progress_label = None   # 进度显示标签
         self.download_after_id = None # 进度更新定时器ID
-    
+        self.usb_aligned = False     # U盘是否对准接口
+
     def run_task_gui(self, main_root=None) -> bool:
         """
         运行下载数据的图形化任务界面
         :param main_root: 主窗口对象（可选）
         :return: 任务是否完成
         """
+        # 重置状态
+        self.usb_aligned = False
+        self.usb_plugged = False
+        self.download_progress = 0
+
         # 确保只创建一个任务窗口
         if self.task_window and (
             (isinstance(self.task_window, tk.Toplevel) and tk.Toplevel.winfo_exists(self.task_window)) or
@@ -805,30 +871,30 @@ class DownloadDataTask(Task):
         ):
             self.task_window.lift()
             return False
-        
+
         # 创建窗口（优先使用Toplevel依附主窗口）
         if main_root and isinstance(main_root, tk.Tk):
             self.task_window = tk.Toplevel(main_root)
         else:
             self.task_window = tk.Tk()  # 无主窗口时创建独立窗口
-        
+
         root = self.task_window
         root.title("通讯室 - 下载数据")
         root.geometry("800x600")
         root.configure(bg="#1a1a2e")
         root.resizable(False, False)
         root.wm_attributes("-topmost", True)  # 窗口置顶
-        
+
         # 窗口关闭协议：确保正确清理资源
         root.protocol("WM_DELETE_WINDOW", lambda: self._cleanup_window(root))
-        
+
         # 中文字体（增加兼容性）
         font_family = "SimHei"
         try:
             tk.font.Font(family=font_family, size=12)
         except:
             font_family = "Arial"  # 兜底字体
-        
+
         # 创建UI
         def create_ui():
             """创建任务界面"""
@@ -841,122 +907,214 @@ class DownloadDataTask(Task):
                 bg="#1a1a2e"
             )
             title_label.pack(pady=20)
-            
-            # 主画布（蓝色底板）
+
+            # 主画布（深蓝色科技底板）
             main_canvas = tk.Canvas(
                 root,
                 width=700,
                 height=400,
-                bg="#0066cc",  # 蓝色底板
+                bg="#0a1628",  # 深蓝色科技底板
                 highlightthickness=2,
                 highlightbackground="#e94560",
                 cursor="hand2"  # 鼠标悬停显示手型
             )
             main_canvas.pack(pady=10)
-            
-            # ========== 左侧1/3区域：绘制横置U盘 ==========
-            usb_x1, usb_y1 = 50, 180  # U盘初始位置（横置）
-            usb_width = 100  # 横置后宽度更长
-            usb_height = 60  # 横置后高度更短
-            
-            # 绘制U盘主体（灰色，横置）
-            usb_body = main_canvas.create_rectangle(
-                usb_x1, usb_y1,
-                usb_x1 + usb_width, usb_y1 + usb_height,
-                fill="#7f8c8d", outline="#000000", width=2,
-                tags="usb"
-            )
-            # U盘接口（金属色，在U盘右侧，横置）
+
+            # ========== 绘制电脑主机（右下区域）==========
+            # 主机外壳
             main_canvas.create_rectangle(
-                usb_x1 + usb_width - 15, usb_y1 + 10,
-                usb_x1 + usb_width, usb_y1 + 50,
-                fill="#f39c12", outline="#000000", width=1,
-                tags="usb"
+                480, 80, 650, 350,
+                fill="#2d2d2d", outline="#444444", width=3
             )
-            # U盘标识（横置居中）
-            main_canvas.create_text(
-                usb_x1 + usb_width/2, usb_y1 + usb_height/2,
-                text="U盘", font=(font_family, 12), fill="#000000",
-                tags="usb"
+            # 主机前面板
+            main_canvas.create_rectangle(
+                480, 80, 510, 350,
+                fill="#3d3d3d", outline="#555555", width=2
             )
-            
-            # 保存U盘ID和初始位置
-            self.usb_id = usb_body
-            main_canvas.usb_init_x = usb_x1
-            main_canvas.usb_init_y = usb_y1
-            main_canvas.usb_width = usb_width
-            main_canvas.usb_height = usb_height
-            
-            # ========== 右侧区域：显示屏 + USB接口 ==========
-            # 右侧显示屏（上2/3）
-            screen_x1, screen_y1 = 300, 50
-            screen_x2, screen_y2 = 650, 250
+            # 主机电源按钮
+            main_canvas.create_oval(
+                490, 300, 505, 315,
+                fill="#27ae60", outline="#1e8449", width=2
+            )
+            # 主机USB接口（竖着的两个插槽）
+            main_canvas.create_rectangle(
+                492, 240, 500, 260,
+                fill="#1a1a1a", outline="#000000", width=1
+            )
+            main_canvas.create_rectangle(
+                492, 265, 500, 285,
+                fill="#1a1a1a", outline="#000000", width=1
+            )
+
+            # ========== 显示屏 ==========
+            screen_x1, screen_y1 = 80, 50
+            screen_x2, screen_y2 = 420, 280
+            # 显示屏外壳
             main_canvas.create_rectangle(
                 screen_x1, screen_y1, screen_x2, screen_y2,
-                fill="#ecf0f1", outline="#000000", width=3,
-                tags="screen"
+                fill="#1a1a1a", outline="#333333", width=4
+            )
+            # 显示屏内屏
+            main_canvas.create_rectangle(
+                screen_x1 + 10, screen_y1 + 10, screen_x2 - 10, screen_y2 - 40,
+                fill="#0f3057", outline="#000000", width=2
             )
             # 显示屏标题
             main_canvas.create_text(
-                (screen_x1 + screen_x2)/2, screen_y1 + 20,
-                text="数据下载进度", font=(font_family, 14, "bold"), fill="#000000",
-                tags="screen_text"
+                (screen_x1 + screen_x2)/2, screen_y1 + 35,
+                text="数据下载终端", font=(font_family, 14, "bold"), fill="#00d4ff"
             )
-            
-            # 进度显示标签（在显示屏内）
+            # 进度显示标签
             self.progress_label = tk.Label(
                 root,
-                text="0%",
-                font=(font_family, 36, "bold"),
-                fg="#27ae60",
-                bg="#ecf0f1"
+                text="等待插入设备...",
+                font=(font_family, 28, "bold"),
+                fg="#ff6b6b",
+                bg="#0f3057"
             )
-            # 将标签放置在显示屏中央
             self.progress_label.place(
-                x=(screen_x1 + screen_x2)/2 - 30, 
-                y=(screen_y1 + screen_y2)/2 - 20
+                x=(screen_x1 + screen_x2)/2 - 100,
+                y=(screen_y1 + screen_y2)/2 - 50
             )
-            
-            # 右侧USB接口（下1/3，横置接口）
-            usb_port_x1, usb_port_y1 = 400, 300
-            usb_port_x2, usb_port_y2 = 500, 350
-            # 接口外框（横置）
+            # 显示屏底座
             main_canvas.create_rectangle(
-                usb_port_x1, usb_port_y1, usb_port_x2, usb_port_y2,
-                fill="#bdc3c7", outline="#000000", width=2,
-                tags="usb_port"
+                (screen_x1 + screen_x2)/2 - 40, screen_y2 - 30, (screen_x1 + screen_x2)/2 + 40, screen_y2,
+                fill="#2d2d2d", outline="#444444", width=2
             )
-            # 接口插槽（横置，匹配U盘尺寸）
+
+            # ========== 绘制真实的U盘 ==========
+            usb_init_x, usb_init_y = 100, 320  # U盘初始位置
+
+            # U盘外壳（主体）
             main_canvas.create_rectangle(
-                usb_port_x1 + 5, usb_port_y1 + 5,
-                usb_port_x2 - 5, usb_port_y2 - 5,
-                fill="#7f8c8d", outline="#000000", width=1,
-                tags="usb_port_slot"
+                usb_init_x, usb_init_y,
+                usb_init_x + 120, usb_init_y + 50,
+                fill="#c0c0c0", outline="#808080", width=2,
+                tags="usb"
             )
-            # 接口标识
+            # U盘尾部挂绳孔
+            main_canvas.create_oval(
+                usb_init_x + 5, usb_init_y + 18,
+                usb_init_x + 15, usb_init_y + 32,
+                fill="#1a1a1a", outline="#000000", width=1,
+                tags="usb"
+            )
+            # U盘外壳上的文字
             main_canvas.create_text(
-                (usb_port_x1 + usb_port_x2)/2, usb_port_y2 + 20,
-                text="USB接口", font=(font_family, 12), fill="#ffffff"
+                usb_init_x + 75, usb_init_y + 25,
+                text="USB", font=(font_family, 10, "bold"), fill="#333333",
+                tags="usb"
             )
-            
+            # U盘LED指示灯（绿色小圆点）
+            led_id = main_canvas.create_oval(
+                usb_init_x + 95, usb_init_y + 10,
+                usb_init_x + 100, usb_init_y + 15,
+                fill="#333333", outline="#000000", width=1,
+                tags="usb"
+            )
+            # U盘USB金属接口（突出部分）- 这是我们要追踪的部分
+            usb_metal_id = main_canvas.create_rectangle(
+                usb_init_x + 120, usb_init_y + 12,
+                usb_init_x + 135, usb_init_y + 38,
+                fill="#d4af37", outline="#b8860b", width=2,  # 金色金属
+                tags="usb"
+            )
+            # USB接口上的两个小孔（Type-A接口特征）
+            main_canvas.create_rectangle(
+                usb_init_x + 125, usb_init_y + 18,
+                usb_init_x + 130, usb_init_y + 22,
+                fill="#1a1a1a",
+                tags="usb"
+            )
+            main_canvas.create_rectangle(
+                usb_init_x + 125, usb_init_y + 28,
+                usb_init_x + 130, usb_init_y + 32,
+                fill="#1a1a1a",
+                tags="usb"
+            )
+
+            # U盘上的缺口标记（对准提示）
+            gap_x = usb_init_x + 120
+            main_canvas.create_polygon(
+                gap_x, usb_init_y + 20,
+                gap_x, usb_init_y + 30,
+                gap_x + 5, usb_init_y + 25,
+                fill="#ff0000",
+                tags="usb"
+            )
+
+            # 保存U盘ID和初始位置
+            self.usb_id = led_id
+            main_canvas.usb_init_x = usb_init_x
+            main_canvas.usb_init_y = usb_init_y
+            main_canvas.usb_width = 135  # 包含金属接口
+            main_canvas.usb_height = 50
+            main_canvas.usb_led_id = led_id
+            main_canvas.usb_metal_id = usb_metal_id  # 保存金属头ID
+
+            # ========== 电脑主机上的USB接口（目标位置）==========
+            port_x1, port_y1 = 485, 180
+            port_x2, port_y2 = 505, 230
+            # 保存接口的目标中心点（金属头要对准这里）
+            main_canvas.port_center_x = 490
+            main_canvas.port_center_y = 205
+
+            # 接口外框
+            main_canvas.create_rectangle(
+                port_x1, port_y1, port_x2, port_y2,
+                fill="#1a1a1a", outline="#444444", width=2,
+                tags="port"
+            )
+            # 接口内部插槽
+            main_canvas.create_rectangle(
+                port_x1 + 3, port_y1 + 5,
+                port_x2 - 3, port_y1 + 20,
+                fill="#333333", outline="#222222", width=1,
+                tags="port"
+            )
+            main_canvas.create_rectangle(
+                port_x1 + 3, port_y1 + 25,
+                port_x2 - 3, port_y1 + 40,
+                fill="#333333", outline="#222222", width=1,
+                tags="port"
+            )
+            # 接口标签
+            main_canvas.create_text(
+                (port_x1 + port_x2)/2, port_y2 + 15,
+                text="USB 3.0", font=(font_family, 9), fill="#888888"
+            )
+
+            # 对准标记（红色虚线提示区域）
+            main_canvas.create_rectangle(
+                port_x1 - 30, port_y1 - 20,
+                port_x2 + 30, port_y2 + 20,
+                outline="#ff6b6b", width=2, dash=(5, 5),
+                tags="port_hint"
+            )
+            # 对准提示文字
+            main_canvas.create_text(
+                (port_x1 + port_x2)/2, port_y2 + 35,
+                text="将U盘插入此处", font=(font_family, 10), fill="#ff6b6b"
+            )
+
             # 保存接口位置信息
-            main_canvas.usb_port_x1 = usb_port_x1
-            main_canvas.usb_port_y1 = usb_port_y1
-            main_canvas.usb_port_x2 = usb_port_x2
-            main_canvas.usb_port_y2 = usb_port_y2
-            
+            main_canvas.port_x1 = port_x1
+            main_canvas.port_y1 = port_y1
+            main_canvas.port_x2 = port_x2
+            main_canvas.port_y2 = port_y2
+
             # 任务状态标签
             status_label = tk.Label(
                 root,
-                text="任务状态：未完成（将U盘拖入USB接口开始下载）",
+                text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中",
                 font=(font_family, 12),
                 fg="#ffffff",
                 bg="#1a1a2e"
             )
             status_label.pack(pady=10)
-            
+
             return main_canvas, status_label
-        
+
         # U盘拖动事件处理
         def on_usb_click(event):
             """点击U盘开始拖动"""
@@ -967,141 +1125,179 @@ class DownloadDataTask(Task):
             for item in items:
                 if "usb" in event.widget.gettags(item):
                     self.usb_dragging = True
-                    # 记录点击偏移量（基于U盘左上角）
-                    event.widget.click_x = event.x - event.widget.coords(self.usb_id)[0]
-                    event.widget.click_y = event.y - event.widget.coords(self.usb_id)[1]
+                    # 记录鼠标初始位置
+                    event.widget.start_x = event.x
+                    event.widget.start_y = event.y
                     # 提升U盘层级
                     event.widget.tag_raise("usb")
                     break
-        
+
         def on_usb_drag(event):
             """拖动U盘"""
             if not self.usb_dragging or self.usb_plugged or self.download_progress >= 100:
                 return
             canvas = event.widget
-            # 计算新位置（基于点击偏移量）
-            new_x = event.x - canvas.click_x
-            new_y = event.y - canvas.click_y
+            # 计算移动偏移量
+            dx = event.x - canvas.start_x
+            dy = event.y - canvas.start_y
             # 移动整个U盘（所有usb标签的图形）
             for item in canvas.find_withtag("usb"):
-                if canvas.type(item) == "rectangle":
-                    # 矩形（U盘主体/接口）：更新四个坐标
-                    canvas.coords(item, new_x, new_y, new_x + canvas.usb_width, new_y + canvas.usb_height)
-                elif canvas.type(item) == "text":
-                    # 文字（U盘标识）：更新居中坐标
-                    canvas.coords(item, new_x + canvas.usb_width/2, new_y + canvas.usb_height/2)
-        
-        def on_usb_release(event):
-            """释放U盘，检测是否插入接口（精准吸附到接口上）"""
-            if not self.usb_dragging or self.download_progress >= 100:
-                self.usb_dragging = False
-                return
+                canvas.move(item, dx, dy)
+            # 更新鼠标起始位置
+            canvas.start_x = event.x
+            canvas.start_y = event.y
+
+            # 获取金属头当前位置（中心点）
+            metal_coords = canvas.coords(canvas.usb_metal_id)
+            metal_center_x = (metal_coords[0] + metal_coords[2]) / 2
+            metal_center_y = (metal_coords[1] + metal_coords[3]) / 2
+
+            # 检测金属头是否靠近插口（30像素范围内）
+            distance = ((metal_center_x - canvas.port_center_x) ** 2 + 
+                       (metal_center_y - canvas.port_center_y) ** 2) ** 0.5
             
-            canvas = event.widget
-            self.usb_dragging = False
-            
-            # 获取U盘当前位置
-            usb_x, usb_y = canvas.coords(self.usb_id)[0], canvas.coords(self.usb_id)[1]
-            # 获取接口位置
-            port_x1 = canvas.usb_port_x1
-            port_y1 = canvas.usb_port_y1
-            port_x2 = canvas.usb_port_x2
-            port_y2 = canvas.usb_port_y2
-            
-            # 检测是否拖入接口区域（吸附判定）
-            if (usb_x + canvas.usb_width > port_x1 and 
-                usb_x < port_x2 and 
-                usb_y + canvas.usb_height > port_y1 and 
-                usb_y < port_y2):
-                # U盘精准吸附到USB接口上（居中）
-                target_x = port_x1 + (port_x2 - port_x1 - canvas.usb_width) / 2  # 接口内水平居中
-                target_y = port_y1 + (port_y2 - port_y1 - canvas.usb_height) / 2  # 接口内垂直居中
-                # 移动U盘到接口正中央
-                for item in canvas.find_withtag("usb"):
-                    if canvas.type(item) == "rectangle":
-                        canvas.coords(item, target_x, target_y, target_x + canvas.usb_width, target_y + canvas.usb_height)
-                    elif canvas.type(item) == "text":
-                        canvas.coords(item, target_x + canvas.usb_width/2, target_y + canvas.usb_height/2)
+            if distance < 30 and not self.usb_plugged:
+                # 自动吸附！
+                self.usb_dragging = False  # 停止拖动
                 self.usb_plugged = True
+                
+                # 计算吸附的偏移量
+                target_metal_x = canvas.port_center_x - 7.5  # 金属头宽度的一半
+                target_metal_y = canvas.port_center_y - 13
+                dx_adjust = target_metal_x - metal_coords[0]
+                dy_adjust = target_metal_y - metal_coords[1]
+                
+                # 移动整个U盘
+                for item in canvas.find_withtag("usb"):
+                    canvas.move(item, dx_adjust, dy_adjust)
+                
+                # LED变绿表示已连接
+                canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
+                status_label.config(text="🔄 设备已连接，正在传输数据...", fg="#00d4ff")
+                
                 # 开始下载进度
                 self.start_download(canvas, status_label)
+                return
+
+            # 显示对准状态
+            if distance < 50:
+                if not self.usb_aligned:
+                    self.usb_aligned = True
+                    status_label.config(text="✅ 靠近接口了，继续移动！", fg="#27ae60")
             else:
-                # 未拖入接口，恢复初始位置
+                if self.usb_aligned:
+                    self.usb_aligned = False
+                    status_label.config(text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中", fg="#ffffff")
+
+        def on_usb_release(event):
+            """释放U盘（只有在没自动吸附时才会触发）"""
+            if self.usb_plugged or self.download_progress >= 100:
+                return
+            self.usb_dragging = False
+            canvas = event.widget
+            # 如果释放时已经很接近了，也自动吸附
+            metal_coords = canvas.coords(canvas.usb_metal_id)
+            metal_center_x = (metal_coords[0] + metal_coords[2]) / 2
+            metal_center_y = (metal_coords[1] + metal_coords[3]) / 2
+            distance = ((metal_center_x - canvas.port_center_x) ** 2 + 
+                       (metal_center_y - canvas.port_center_y) ** 2) ** 0.5
+            if distance < 40:
+                # 也吸附
+                self.usb_plugged = True
+                target_metal_x = canvas.port_center_x - 7.5
+                target_metal_y = canvas.port_center_y - 13
+                dx_adjust = target_metal_x - metal_coords[0]
+                dy_adjust = target_metal_y - metal_coords[1]
                 for item in canvas.find_withtag("usb"):
-                    if canvas.type(item) == "rectangle":
-                        canvas.coords(item, canvas.usb_init_x, canvas.usb_init_y, 
-                                     canvas.usb_init_x + canvas.usb_width, canvas.usb_init_y + canvas.usb_height)
-                    elif canvas.type(item) == "text":
-                        canvas.coords(item, canvas.usb_init_x + canvas.usb_width/2, canvas.usb_init_y + canvas.usb_height/2)
-        
+                    canvas.move(item, dx_adjust, dy_adjust)
+                canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
+                status_label.config(text="🔄 设备已连接，正在传输数据...", fg="#00d4ff")
+                self.start_download(canvas, status_label)
+                return
+            # 否则返回初始位置
+            current_x = canvas.coords(canvas.usb_led_id)[0]
+            current_y = canvas.coords(canvas.usb_led_id)[1]
+            dx = canvas.usb_init_x - current_x
+            dy = canvas.usb_init_y - current_y
+            for item in canvas.find_withtag("usb"):
+                canvas.move(item, dx, dy)
+            status_label.config(text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中", fg="#ffffff")
+
         # 创建UI并绑定事件
         main_canvas, status_label = create_ui()
-        
+
         # 绑定U盘拖动事件
         main_canvas.bind("<ButtonPress-1>", on_usb_click)
         main_canvas.bind("<B1-Motion>", on_usb_drag)
         main_canvas.bind("<ButtonRelease-1>", on_usb_release)
-        
+
         # 启动主循环（增加异常处理）
         try:
             root.mainloop()
         except Exception as e:
             print(f"数据下载任务GUI运行错误: {e}")
             self.task_completed = False
-        
+
         # GUI关闭后，返回任务是否完成
         if self.task_completed:
             self.complete()  # 标记任务为已完成
             return True
         return False
-    
+
     def _cleanup_window(self, root):
         """窗口清理函数"""
         # 取消进度更新定时器
         if self.download_after_id:
-            root.after_cancel(self.download_after_id)
+            try:
+                root.after_cancel(self.download_after_id)
+            except:
+                pass
         self.usb_dragging = False
         self.usb_plugged = False
+        self.usb_aligned = False
         if root:
             root.quit()
             root.destroy()
-    
+
     def start_download(self, canvas, status_label):
         """开始下载进度更新（实例方法）"""
         if self.download_progress >= 100 or not self.usb_plugged:
             return
-        
-        # 更新进度（每秒涨10%）
-        self.download_progress += 10
+
+        # 更新进度（每秒涨8%，需要约12.5秒完成，略慢一些增加紧张感）
+        self.download_progress += 8
         if self.download_progress > 100:
             self.download_progress = 100
-        
+
         # 更新进度显示
         if self.progress_label:
-            self.progress_label.config(text=f"{self.download_progress}%")
-        status_label.config(text=f"任务状态：下载中...{self.download_progress}%")
-        
+            self.progress_label.config(text=f"{self.download_progress}%", fg="#27ae60" if self.download_progress > 50 else "#f39c12")
+        status_label.config(text=f"🔄 数据传输中... {self.download_progress}%")
+
         # 进度到100%，完成任务
         if self.download_progress >= 100:
             self.complete_download(canvas, status_label)
             return
-        
+
         # 继续更新进度（1秒后）
         self.download_after_id = canvas.after(1000, self.start_download, canvas, status_label)
-    
+
     def complete_download(self, canvas, status_label):
         """完成下载任务（实例方法）"""
         self.usb_plugged = False
-        status_label.config(text="任务状态：已完成！", fg="#00ff00")
-        
+        status_label.config(text="✅ 传输完成！", fg="#00ff00")
+
         if self.progress_label:
-            self.progress_label.config(text="100%", fg="#27ae60")
-        
+            self.progress_label.config(text="完成！", fg="#00ff00")
+
+        # LED闪烁完成
+        canvas.itemconfig(canvas.usb_led_id, fill="#00ff00")
+
         # 禁用U盘拖动（解绑事件）
         canvas.unbind("<ButtonPress-1>")
         canvas.unbind("<B1-Motion>")
         canvas.unbind("<ButtonRelease-1>")
-        
+
         self.task_completed = True
         # 弹出完成提示
         messagebox.showinfo("任务完成", "🎉 数据下载完成！")
@@ -1153,64 +1349,71 @@ class CalibrateDownEngineTask(Task):
         root = self.task_window
         root.title("下降引擎室 - 引擎校准")
         root.geometry("650x520")
-        root.configure(bg="#ffffff")
+        root.configure(bg="#0d1117")
         root.resizable(False, False)
         root.wm_attributes("-topmost", True)
 
-        # 关键修复：窗口关闭协议只清理资源，不修改完成状态
         root.protocol("WM_DELETE_WINDOW", lambda: self._cleanup_window(root, False))
 
-        # 中文字体（增加兼容性）
         font_family = "SimHei"
         try:
             tk.font.Font(family=font_family, size=12)
         except:
             font_family = "Arial"
 
-        # 创建主画布
         main_canvas = tk.Canvas(
             root,
             width=630,
             height=500,
-            bg="#ffffff",
+            bg="#0d1117",
             highlightthickness=0
         )
         main_canvas.pack(pady=8)
 
+        # ========== 标题区域 ==========
+        title_label = tk.Label(
+            root,
+            text="🔧 下降引擎校准系统",
+            font=(font_family, 16, "bold"),
+            bg="#0d1117",
+            fg="#00d4ff"
+        )
+        title_label.place(x=20, y=5, width=600, height=30)
+
         # ========== 滑动条区域 ==========
-        slider_frame = tk.Frame(root, bg="#ffffff")
-        slider_frame.place(x=20, y=15, width=600, height=220)
-        
+        slider_frame = tk.Frame(root, bg="#161b22")
+        slider_frame.place(x=20, y=40, width=600, height=180)
+
         sliders = []
         slider_labels = []
 
-        # 创建4个滑动条
         for i in range(4):
-            slider_row = tk.Frame(slider_frame, bg="#ffffff")
-            slider_row.pack(fill=tk.X, pady=2)  
-            
-            # 滑动条标签
+            slider_row = tk.Frame(slider_frame, bg="#161b22")
+            slider_row.pack(fill=tk.X, pady=6)
+
             label = tk.Label(
                 slider_row,
                 text=f"引擎{i+1}：0%",
-                font=(font_family, 10),
-                bg="#ffffff",
+                font=(font_family, 11),
+                bg="#161b22",
+                fg="#58a6ff",
                 width=10
             )
             label.pack(side=tk.LEFT, padx=5)
             slider_labels.append(label)
-            
-            # 滑动条
+
             slider = tk.Scale(
                 slider_row,
                 from_=0,
                 to=100,
                 orient=tk.HORIZONTAL,
                 length=480,
-                bg="#ffffff",
+                bg="#21262d",
+                fg="#00d4ff",
                 highlightthickness=0,
-                troughcolor="#e0e0e0",
-                sliderlength=20,
+                troughcolor="#30363d",
+                sliderlength=25,
+                showvalue=0,
                 command=lambda val, idx=i: self.on_slider_change(
                     val, idx, main_canvas, slider_labels, status_label
                 )
@@ -1219,32 +1422,54 @@ class CalibrateDownEngineTask(Task):
             slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
             sliders.append(slider)
 
-        # ========== 圆环区域 ==========
-        ring_radius = 32
-        ring_center_y = 290
-        ring_spacing = 130
-        
+        # ========== 引擎展示区域 ==========
+        engine_bg = main_canvas.create_rectangle(20, 230, 610, 400, fill="#161b22", outline="#30363d", width=2)
+
+        engine_title = tk.Label(
+            root,
+            text="引擎状态监控",
+            font=(font_family, 12, "bold"),
+            bg="#161b22",
+            fg="#8b949e"
+        )
+        engine_title.place(x=25, y=233, width=150, height=20)
+
+        ring_radius = 38
+        ring_center_y = 315
+        ring_spacing = 135
+
         self.ring_ids = []
         for i in range(4):
-            ring_center_x = 85 + i * ring_spacing
-            # 外圆环
+            ring_center_x = 95 + i * ring_spacing
+
+            glow_ring = main_canvas.create_oval(
+                ring_center_x - ring_radius - 8, ring_center_y - ring_radius - 8,
+                ring_center_x + ring_radius + 8, ring_center_y + ring_radius + 8,
+                fill="", outline="#00d4ff", width=2
+            )
             outer_ring = main_canvas.create_oval(
                 ring_center_x - ring_radius, ring_center_y - ring_radius,
                 ring_center_x + ring_radius, ring_center_y + ring_radius,
-                outline="#000000", width=4, fill=""
+                outline="#c9d1d9", width=5, fill=""
             )
-            # 中间填充区域
             inner_circle = main_canvas.create_oval(
-                ring_center_x - (ring_radius - 6), ring_center_y - (ring_radius - 6),
-                ring_center_x + (ring_radius - 6), ring_center_y + (ring_radius - 6),
-                fill="#cccccc", outline=""
+                ring_center_x - (ring_radius - 8), ring_center_y - (ring_radius - 8),
+                ring_center_x + (ring_radius - 8), ring_center_y + (ring_radius - 8),
+                fill="#21262d", outline=""
+            )
+            center_dot = main_canvas.create_oval(
+                ring_center_x - 8, ring_center_y - 8,
+                ring_center_x + 8, ring_center_y + 8,
+                fill="#30363d", outline="#8b949e", width=2
             )
             self.ring_ids.append({
                 "outer": outer_ring,
                 "inner": inner_circle,
+                "glow": glow_ring,
+                "center": center_dot,
                 "x": ring_center_x,
                 "y": ring_center_y,
-                "radius": ring_radius - 6
+                "radius": ring_radius - 8
             })
 
         # ========== 状态标签 ==========
@@ -1252,8 +1477,8 @@ class CalibrateDownEngineTask(Task):
             root,
             text="任务状态：未完成（将4个滑块调整至40%-60%区间）",
             font=(font_family, 12, "bold"),
-            bg="#ffffff",
-            fg="#ff0000",
+            bg="#0d1117",
+            fg="#f85149",
             wraplength=600
         )
         status_label.place(x=20, y=410, width=600, height=40)
@@ -1276,58 +1501,47 @@ class CalibrateDownEngineTask(Task):
 
     def on_slider_change(self, val, idx, canvas, labels, status_label):
         """滑动条值变化回调"""
-        if self.task_finalized:  # 任务已最终完成，不再响应
+        if self.task_finalized:
             return
-            
-        # 更新滑块值
+
         val = int(float(val))
         self.slider_values[idx] = val
-        
-        # 更新标签
+
         labels[idx].config(text=f"引擎{idx+1}：{val}%")
-        
-        # 计算颜色
+
         if self.threshold_min <= val <= self.threshold_max:
-            blue_intensity = 200 + int((abs(val - 50) / 10) * -55)
-            blue_intensity = max(200, min(255, blue_intensity))
-            fill_color = f"#{0:02x}{100:02x}{blue_intensity:02x}"
+            fill_color = "#238636"
         elif val < self.threshold_min:
             gray_intensity = 200 - int(val / self.threshold_min * 150)
             gray_intensity = max(50, min(200, gray_intensity))
             fill_color = f"#{gray_intensity:02x}{gray_intensity:02x}{gray_intensity:02x}"
         else:
-            red_intensity = 200 + int((val - self.threshold_max) / 40 * 55)
-            red_intensity = max(200, min(255, red_intensity))
-            fill_color = f"#{red_intensity:02x}{50:02x}{50:02x}"
-        
-        # 更新圆环颜色
+            fill_color = "#da3633"
+
         try:
             canvas.itemconfig(self.ring_ids[idx]["inner"], fill=fill_color)
         except IndexError:
             return
-        
-        # 更新状态提示
+
         all_in_range = all(self.threshold_min <= v <= self.threshold_max for v in self.slider_values)
         if all_in_range:
             status_label.config(
                 text="任务状态：所有引擎校准完成！",
-                fg="#00ff00"
+                fg="#3fb950"
             )
-            # 取消之前的定时器
             if self.complete_after_id:
                 canvas.after_cancel(self.complete_after_id)
-            # 延迟检测完成
-            self.complete_after_id = canvas.after(800, self.check_task_complete, 
+            self.complete_after_id = canvas.after(800, self.check_task_complete,
                                                 None, status_label, canvas.master)
         else:
             if self.complete_after_id:
                 canvas.after_cancel(self.complete_after_id)
                 self.complete_after_id = None
-                
+
             in_range_count = sum(1 for v in self.slider_values if self.threshold_min <= v <= self.threshold_max)
             status_label.config(
                 text=f"任务状态：{in_range_count}/4 引擎校准中（需40%-60%）",
-                fg="#ff8800"
+                fg="#d29922"
             )
 
     def check_task_complete(self, sliders=None, status_label=None, root=None):
@@ -1350,7 +1564,7 @@ class CalibrateDownEngineTask(Task):
         if status_label:
             status_label.config(
                 text="任务状态：校准成功！",
-                fg="#00ff00"
+                fg="#3fb950"
             )
         
         # 禁用所有滑动条
@@ -1435,22 +1649,22 @@ class CalibrateUpEngineTask(Task):
         self.fuel_in_radius = 15     # 燃料接口判定半径
 
     def generate_random_points(self):
-        """生成4个随机点位（每个点半径100像素内不重复）"""
+        """生成4个随机点位（每个点半径100像素内不重复，只在左2/3区域生成）"""
         self.points = []
-        # 生成区域范围（画布内，避开燃料出口和接口）
-        min_x, max_x = 100, 500
-        min_y, max_y = 50, 350
-        
-        # 生成第一个点（基础点）
+        canvas_width = 680
+        canvas_height = 400
+        min_x = 80
+        max_x = int(canvas_width * 2 / 3)
+        min_y = 50
+        max_y = canvas_height - 50
+
         first_x = random.randint(min_x, max_x)
         first_y = random.randint(min_y, max_y)
         self.points.append((first_x, first_y))
-        
-        # 生成剩余3个点（确保与已有点距离>100）
+
         while len(self.points) < 4:
             new_x = random.randint(min_x, max_x)
             new_y = random.randint(min_y, max_y)
-            # 检查与所有已有点的距离
             valid = True
             for (x, y) in self.points:
                 distance = math.hypot(new_x - x, new_y - y)
@@ -1491,65 +1705,109 @@ class CalibrateUpEngineTask(Task):
             # 任务窗口配置（核心：不设置为独立主循环）
             self.task_window.title("校准上升引擎")
             self.task_window.geometry("700x500")
-            self.task_window.configure(bg="#ffffff")
+            self.task_window.configure(bg="#0d1117")
             self.task_window.resizable(False, False)
             self.task_window.attributes('-topmost', True)
-            self.task_window.transient(main_root)  # 设为临时窗口，依赖主GUI
-            
-            # 绑定窗口关闭事件（关键：只关闭任务窗口，不影响主GUI）
+            self.task_window.transient(main_root)
+
             self.task_window.protocol("WM_DELETE_WINDOW", self.safe_close_window)
 
-            # 中文字体
             font_family = "SimHei"
 
-            # 创建主画布
             self.canvas = tk.Canvas(
                 self.task_window,
                 width=680,
                 height=480,
-                bg="#ffffff",
+                bg="#0d1117",
                 highlightthickness=0
             )
             self.canvas.pack(pady=10)
 
+            # ========== 标题 ==========
+            title_label = tk.Label(
+                self.task_window,
+                text="🔧 上升引擎校准系统",
+                font=(font_family, 16, "bold"),
+                bg="#0d1117",
+                fg="#00d4ff"
+            )
+            title_label.place(x=20, y=2, width=300, height=30)
+
             # ========== 绘制核心元素 ==========
-            # 1. 燃料出口（左上角绿色大方块）
-            self.fuel_out_pos = (80, 80)
+            # 1. 燃料出口（左上角，带金属边框的方形接口）
+            self.fuel_out_pos = (70, 80)
             self.fuel_out = self.canvas.create_rectangle(
-                self.fuel_out_pos[0] - self.fuel_out_radius, self.fuel_out_pos[1] - self.fuel_out_radius,
-                self.fuel_out_pos[0] + self.fuel_out_radius, self.fuel_out_pos[1] + self.fuel_out_radius,
-                fill="#2ecc71", outline="#000000", width=3,
+                self.fuel_out_pos[0] - 25, self.fuel_out_pos[1] - 25,
+                self.fuel_out_pos[0] + 25, self.fuel_out_pos[1] + 25,
+                fill="#21262d", outline="#30363d", width=3,
+                tags="fuel_out"
+            )
+            self.fuel_out_inner = self.canvas.create_rectangle(
+                self.fuel_out_pos[0] - 15, self.fuel_out_pos[1] - 15,
+                self.fuel_out_pos[0] + 15, self.fuel_out_pos[1] + 15,
+                fill="#238636", outline="#2ea043", width=2,
+                tags="fuel_out"
+            )
+            self.fuel_out_pipe = self.canvas.create_rectangle(
+                self.fuel_out_pos[0] + 20, self.fuel_out_pos[1] - 8,
+                self.fuel_out_pos[0] + 45, self.fuel_out_pos[1] + 8,
+                fill="#30363d", outline="#484f58", width=2,
                 tags="fuel_out"
             )
             self.canvas.create_text(
-                self.fuel_out_pos[0], self.fuel_out_pos[1] - 30,
-                text="燃料出口", font=(font_family, 12, "bold"), fill="#000000"
+                self.fuel_out_pos[0], self.fuel_out_pos[1] - 45,
+                text="燃料出口", font=(font_family, 11, "bold"), fill="#58a6ff"
+            )
+            self.canvas.create_text(
+                self.fuel_out_pos[0], self.fuel_out_pos[1] + 50,
+                text="OUT", font=(font_family, 9, "bold"), fill="#8b949e"
             )
 
-            # 2. 生成并绘制4个随机磁吸点位
+            # 2. 生成并绘制4个随机磁吸点位（科技风格）
             self.generate_random_points()
             for idx, (x, y) in enumerate(self.points):
+                self.canvas.create_rectangle(
+                    x - 12, y - 12, x + 12, y + 12,
+                    fill="#21262d", outline="#30363d", width=3,
+                    tags=f"point_{idx}"
+                )
                 self.canvas.create_oval(
-                    x - 8, y - 8, x + 8, y + 8,
-                    fill="#bdc3c7", outline="#000000", width=2,
+                    x - 6, y - 6, x + 6, y + 6,
+                    fill="#484f58", outline="#8b949e", width=1,
                     tags=f"point_{idx}"
                 )
                 self.canvas.create_text(
-                    x, y - 15,
-                    text=f"点{idx+1}", font=(font_family, 10, "bold"), fill="#000000"
+                    x, y - 22,
+                    text=f"{idx+1}", font=(font_family, 10, "bold"), fill="#d29922"
                 )
 
-            # 3. 燃料接口（右下角红色大方块）
-            self.fuel_in_pos = (250, 350)
+            # 3. 燃料接口（右下角，带金属边框的方形接口）
+            self.fuel_in_pos = (260, 360)
+            self.fuel_in_pipe = self.canvas.create_rectangle(
+                self.fuel_in_pos[0] - 45, self.fuel_in_pos[1] - 8,
+                self.fuel_in_pos[0] - 20, self.fuel_in_pos[1] + 8,
+                fill="#30363d", outline="#484f58", width=2,
+                tags="fuel_in"
+            )
             self.fuel_in = self.canvas.create_rectangle(
-                self.fuel_in_pos[0] - self.fuel_in_radius, self.fuel_in_pos[1] - self.fuel_in_radius,
-                self.fuel_in_pos[0] + self.fuel_in_radius, self.fuel_in_pos[1] + self.fuel_in_radius,
-                fill="#e74c3c", outline="#000000", width=3,
+                self.fuel_in_pos[0] - 25, self.fuel_in_pos[1] - 25,
+                self.fuel_in_pos[0] + 25, self.fuel_in_pos[1] + 25,
+                fill="#21262d", outline="#30363d", width=3,
+                tags="fuel_in"
+            )
+            self.fuel_in_inner = self.canvas.create_rectangle(
+                self.fuel_in_pos[0] - 15, self.fuel_in_pos[1] - 15,
+                self.fuel_in_pos[0] + 15, self.fuel_in_pos[1] + 15,
+                fill="#da3633", outline="#f85149", width=2,
                 tags="fuel_in"
             )
             self.canvas.create_text(
-                self.fuel_in_pos[0], self.fuel_in_pos[1] + 30,
-                text="燃料接口", font=(font_family, 12, "bold"), fill="#000000"
+                self.fuel_in_pos[0], self.fuel_in_pos[1] + 45,
+                text="燃料接口", font=(font_family, 11, "bold"), fill="#58a6ff"
+            )
+            self.canvas.create_text(
+                self.fuel_in_pos[0], self.fuel_in_pos[1] - 50,
+                text="IN", font=(font_family, 9, "bold"), fill="#8b949e"
             )
 
             # ========== 状态标签 ==========
@@ -1557,45 +1815,63 @@ class CalibrateUpEngineTask(Task):
                 self.task_window,
                 text="任务状态：请将管道从燃料出口拖动至点位1（磁吸吸附）",
                 font=(font_family, 12, "bold"),
-                bg="#ffffff",
-                fg="#ff0000",
+                bg="#0d1117",
+                fg="#f85149",
                 wraplength=680
             )
             self.status_label.place(x=20, y=420, width=650, height=40)
 
-            # ========== 右侧旋钮 ==========
-            knob_frame = tk.Frame(self.task_window, bg="#ffffff")
-            knob_frame.place(x=450, y=150, width=200, height=220)
+            # ========== 右侧控制面板（正方形按钮） ==========
+            knob_frame = tk.Frame(self.task_window, bg="#161b22")
+            knob_frame.place(x=450, y=120, width=200, height=280)
 
-            # 旋钮1（上）
-            self.knob1_canvas = tk.Canvas(knob_frame, width=100, height=100, bg="#ffffff", highlightthickness=0)
-            self.knob1_canvas.pack(pady=10)
-            self.knob1_arc = self.knob1_canvas.create_arc(
-                10, 10, 90, 90,
-                start=0, extent=180,
-                fill="#bdc3c7", outline="#000000", width=3
+            knob_title = tk.Label(
+                knob_frame,
+                text="控制面板",
+                font=(font_family, 12, "bold"),
+                bg="#161b22",
+                fg="#8b949e"
             )
-            self.knob1_canvas.create_text(
-                50, 50,
-                text="旋钮1", font=(font_family, 12, "bold"), fill="#000000"
-            )
-            self.knob1_canvas.bind("<Button-1>", lambda e: self.rotate_knob(0))
-            self.knob1_canvas.config(state=tk.DISABLED)
+            knob_title.pack(pady=10)
 
-            # 旋钮2（下）
-            self.knob2_canvas = tk.Canvas(knob_frame, width=100, height=100, bg="#ffffff", highlightthickness=0)
-            self.knob2_canvas.pack(pady=10)
-            self.knob2_arc = self.knob2_canvas.create_arc(
-                10, 10, 90, 90,
-                start=0, extent=180,
-                fill="#bdc3c7", outline="#000000", width=3
+            self.knob1_btn = tk.Button(
+                knob_frame,
+                text="阀门1\nOFF",
+                font=(font_family, 12, "bold"),
+                bg="#21262d",
+                fg="#8b949e",
+                activebackground="#30363d",
+                activeforeground="#c9d1d9",
+                relief="flat",
+                bd=0,
+                width=10,
+                height=4,
+                command=lambda: self.rotate_knob(0)
             )
-            self.knob2_canvas.create_text(
-                50, 50,
-                text="旋钮2", font=(font_family, 12, "bold"), fill="#000000"
+            self.knob1_btn.pack(pady=15)
+            self.knob1_btn.config(state=tk.DISABLED)
+
+            self.knob2_btn = tk.Button(
+                knob_frame,
+                text="阀门2\nOFF",
+                font=(font_family, 12, "bold"),
+                bg="#21262d",
+                fg="#8b949e",
+                activebackground="#30363d",
+                activeforeground="#c9d1d9",
+                relief="flat",
+                bd=0,
+                width=10,
+                height=4,
+                command=lambda: self.rotate_knob(1)
             )
-            self.knob2_canvas.bind("<Button-1>", lambda e: self.rotate_knob(1))
-            self.knob2_canvas.config(state=tk.DISABLED)
+            self.knob2_btn.pack(pady=15)
+            self.knob2_btn.config(state=tk.DISABLED)
+
+            if hasattr(self, 'knob1_canvas'):
+                self.knob1_canvas.destroy()
+            if hasattr(self, 'knob2_canvas'):
+                self.knob2_canvas.destroy()
 
             # ========== 绑定交互事件 ==========
             self.canvas.bind("<Motion>", self.on_mouse_move)
@@ -1672,7 +1948,7 @@ class CalibrateUpEngineTask(Task):
             start_pos[0], start_pos[1],
             target_pos[0], target_pos[1],
             width=10,
-            fill="#3498db",
+            fill="#00d4ff",
             capstyle=tk.ROUND,
             joinstyle=tk.ROUND,
             tags="temp_pipe"
@@ -1704,7 +1980,7 @@ class CalibrateUpEngineTask(Task):
                 start_pos[0], start_pos[1],
                 end_pos[0], end_pos[1],
                 width=10,
-                fill="#3498db",
+                fill="#00d4ff",
                 capstyle=tk.ROUND,
                 joinstyle=tk.ROUND,
                 tags="pipe_segment"
@@ -1715,32 +1991,32 @@ class CalibrateUpEngineTask(Task):
 
             # 更新进度
             self.current_point_idx += 1
-            
+
             # 更新状态提示（连接下一个点位）
             if self.current_point_idx < len(self.points):
                 # 高亮目标点位
                 for idx in range(len(self.points)):
-                    self.canvas.itemconfig(f"point_{idx}", fill="#f39c12" if idx == self.current_point_idx else "#bdc3c7")
+                    self.canvas.itemconfig(f"point_{idx}", fill="#30363d" if idx == self.current_point_idx else "#21262d")
                 # 更新状态提示
                 self.status_label.config(
                     text=f"任务状态：已吸附点位{self.current_point_idx}，请拖动至点位{self.current_point_idx+1}",
-                    fg="#ff8800"
+                    fg="#d29922"
                 )
             else:
                 # 4个点位都连接完成，提示连接燃料接口
                 for idx in range(len(self.points)):
-                    self.canvas.itemconfig(f"point_{idx}", fill="#f39c12")
+                    self.canvas.itemconfig(f"point_{idx}", fill="#30363d")
                 self.status_label.config(
                     text="任务状态：4个点位已连接！请将管道拖动至燃料接口并点击确认",
-                    fg="#ff8800"
+                    fg="#d29922"
                 )
-        
+
         # 阶段2：4号点连接完成后，连接燃料接口
         else:
             # 校验是否吸附到燃料接口
             if self.distance((event.x, event.y), self.fuel_in_pos) >= 20:
                 messagebox.showwarning(
-                    "操作提示", 
+                    "操作提示",
                     "请先将管道吸附到燃料接口后再点击！",
                     parent=self.task_window
                 )
@@ -1749,13 +2025,13 @@ class CalibrateUpEngineTask(Task):
             # 确认管道段（燃料接口）
             start_pos = self.points[-1]
             end_pos = self.fuel_in_pos
-            
+
             # 绘制永久管道段（最后一段到燃料接口）
             final_segment = self.canvas.create_line(
                 start_pos[0], start_pos[1],
                 end_pos[0], end_pos[1],
                 width=10,
-                fill="#3498db",
+                fill="#00d4ff",
                 capstyle=tk.ROUND,
                 joinstyle=tk.ROUND,
                 tags="pipe_segment"
@@ -1763,50 +2039,48 @@ class CalibrateUpEngineTask(Task):
             self.line_segments.append(final_segment)
             self.canvas.delete(self.current_segment)
             self.current_segment = None
-            
+
             # 管道连接完成
             self.pipe_connected = True
             self.status_label.config(
-                text="任务状态：管道连接成功！请点击两个旋钮完成校准",
-                fg="#27ae60"
+                text="任务状态：管道连接成功！请点击两个阀门完成校准",
+                fg="#3fb950"
             )
             # 高亮元素
-            self.canvas.itemconfig("fuel_out", fill="#27ae60")
-            self.canvas.itemconfig("fuel_in", fill="#c0392b")
-            # 启用旋钮
-            self.knob1_canvas.config(state=tk.NORMAL)
-            self.knob2_canvas.config(state=tk.NORMAL)
+            self.canvas.itemconfig("fuel_out", fill="#238636")
+            self.canvas.itemconfig("fuel_in", fill="#da3633")
+            # 启用按钮
+            self.knob1_btn.config(state=tk.NORMAL)
+            self.knob2_btn.config(state=tk.NORMAL)
             # 取消鼠标移动事件（管道已连接完成）
             self.canvas.unbind("<Motion>")
 
     def rotate_knob(self, knob_idx):
-        """旋转旋钮"""
+        """旋转阀门"""
         if not self.pipe_connected or self.task_completed or self.window_closed:
             return
-        
-        # 更新旋钮状态
+
+        # 更新阀门状态
         self.knob_states[knob_idx] = 1
         if knob_idx == 0:
-            self.knob1_canvas.itemconfig(self.knob1_arc, extent=270, fill="#3498db", width=4)
+            self.knob1_btn.config(text="阀门1\nON", bg="#238636", fg="#ffffff")
         else:
-            self.knob2_canvas.itemconfig(self.knob2_arc, extent=270, fill="#3498db", width=4)
-        
+            self.knob2_btn.config(text="阀门2\nON", bg="#238636", fg="#ffffff")
+
         # 检查完成状态
         if all(self.knob_states):
             self.task_completed = True
-            self.status_label.config(text="任务状态：校准成功！", fg="#00ff00")
-            # 关键：弹窗关联任务窗口，且只关闭任务窗口，不影响主GUI
+            self.status_label.config(text="任务状态：校准成功！", fg="#3fb950")
             messagebox.showinfo(
-                "任务完成", 
+                "任务完成",
                 "🎉 上升引擎校准成功！",
                 parent=self.task_window
             )
-            # 安全关闭任务窗口（仅关闭子窗口）
             self.safe_close_window()
         else:
             self.status_label.config(
-                text=f"任务状态：旋钮{knob_idx+1}已到位，还需调整另一个旋钮",
-                fg="#ff8800"
+                text=f"任务状态：阀门{knob_idx+1}已开启，还需调整另一个阀门",
+                fg="#d29922"
             )
 
 
@@ -1933,9 +2207,11 @@ class RepairReactorTask(Task):
 
             # ========== 绑定事件 ==========
             self.canvas.bind("<Button-1>", self.on_click)
-            # 仅绑定风扇灰色圆环的点击事件（核心）
+            # 绑定风扇各部件的点击事件（圆环、叶片、轴心都可以点击降温）
             if self.fan_ring_id:
                 self.canvas.tag_bind(self.fan_ring_id, "<Button-1>", self.on_fan_click)
+            self.canvas.tag_bind("fan_blade", "<Button-1>", self.on_fan_click)
+            self.canvas.tag_bind("fan_axis", "<Button-1>", self.on_fan_click)
             # 零件拖拽事件
             self.canvas.tag_bind("part", "<ButtonPress-1>", self.on_part_drag_start)
             self.canvas.tag_bind("part", "<B1-Motion>", self.on_part_drag_move)
@@ -3484,11 +3760,747 @@ class MorseCodeTask(Task):
         self.task_completed = game_instance.ending == 1
         return self.task_completed
 
-# 测试入口
-if __name__ == "__main__":
-    task = BodyScanTask()
-    task.run_task_gui()
-    print(f"任务完成状态：{task.is_completed}")
+class RepairMonitorTask(Task):
+    """监控室 - 修复监控任务（困难版，三步骤）"""
+    
+    def __init__(self):
+        super().__init__("修复监控", "监控室", 3)
+        self.task_completed = False
+        self.task_window = None
+    
+    def run_task_gui(self, main_root=None) -> bool:
+        """运行修复监控的图形化任务界面"""
+        if self.task_window and tk.Toplevel.winfo_exists(self.task_window):
+            self.task_window.lift()
+            return False
+        
+        if main_root and isinstance(main_root, tk.Tk):
+            self.task_window = tk.Toplevel(main_root)
+            self.task_window.transient(main_root)
+            self.task_window.grab_set()
+        else:
+            self.task_window = tk.Tk()
+        
+        root = self.task_window
+        root.title("监控室 - 修复监控任务")
+        root.geometry("900x860+410+140")
+        root.configure(bg="#1a1a2e")
+        root.resizable(False, False)
+        
+        current_step = [1]
+        step1_done = [False]
+        step2_done = [False]
+        step3_done = [False]
+        
+        parts = ["CPU芯片", "内存条", "显卡", "硬盘", "主板"]
+        correct_part = random.choice(parts[:3])
+        selected_part = [None]
+        
+        correct_params = {
+            "电压": random.uniform(3.2, 3.5),
+            "频率": random.uniform(2.5, 3.0),
+            "温度": random.uniform(35, 45)
+        }
+        current_params = {
+            "电压": 3.0,
+            "频率": 2.0,
+            "温度": 50.0
+        }
+        
+        wire_colors = ["红色", "蓝色", "绿色", "黄色"]
+        correct_wiring = {
+            "红色": "输入1",
+            "蓝色": "输入2",
+            "绿色": "输出1",
+            "黄色": "输出2"
+        }
+        wiring_state = {color: None for color in wire_colors}
+        
+        def check_step1():
+            if selected_part[0] == correct_part:
+                step1_done[0] = True
+                current_step[0] = 2
+                messagebox.showinfo("第一步完成", "✅ 零件安装正确！进入第二步：调整参数")
+                show_step2()
+            else:
+                messagebox.showwarning("错误", f"❌ 零件选择错误！请选择正确的零件。\n提示：需要安装一个{correct_part[:2]}类型的组件")
+        
+        def check_step2():
+            all_correct = True
+            # 检查参数是否在提示的范围内
+            if not (3.2 <= current_params["电压"] <= 3.5):
+                all_correct = False
+            if not (2.5 <= current_params["频率"] <= 3.0):
+                all_correct = False
+            if not (35 <= current_params["温度"] <= 45):
+                all_correct = False
+            
+            if all_correct:
+                step2_done[0] = True
+                current_step[0] = 3
+                messagebox.showinfo("第二步完成", "✅ 参数调整正确！进入第三步：重新接线")
+                show_step3()
+            else:
+                messagebox.showwarning("错误", "❌ 参数不在正确范围内！请继续调整。\n\n正确范围：\n电压 3.2-3.5V\n频率 2.5-3.0GHz\n温度 35-45℃")
+        
+        # check_step3不再需要，拖动连接时自动检查
+        
+        def complete_task():
+            self.task_completed = True
+            self.is_completed = True
+            messagebox.showinfo("任务完成", "🎉 监控系统已修复！")
+            root.destroy()
+        
+        def show_step1():
+            for widget in content_frame.winfo_children():
+                widget.destroy()
+            
+            step_label.config(text="第一步：更换零件")
+            
+            instruction = tk.Label(
+                content_frame,
+                text=f"请从下方选择一个正确的零件安装到插槽中",
+                font=("SimHei", 12),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            instruction.pack(pady=5)
+            
+            # 显示需要安装的零件名称
+            target_label = tk.Label(
+                content_frame,
+                text=f"🔧 需要安装：{correct_part}",
+                font=("SimHei", 14, "bold"),
+                fg="#ffd54f",
+                bg="#1a1a2e"
+            )
+            target_label.pack(pady=5)
+            
+            # 创建带图形的零件展示区（2,2,1布局）
+            part_click_regions = {}
+            
+            def on_part_select(part):
+                selected_part[0] = part
+                for p, region_id in part_click_regions.items():
+                    if p == part:
+                        parts_canvas.itemconfig(region_id, outline="#00ff00", width=3)
+                    else:
+                        parts_canvas.itemconfig(region_id, outline="#ffffff", width=2)
+            
+            parts_canvas = tk.Canvas(
+                content_frame,
+                width=600,
+                height=460,
+                bg="#2c3e50",
+                highlightthickness=2,
+                highlightbackground="#e94560"
+            )
+            parts_canvas.pack(pady=15)
+            
+            # 零件位置坐标（2,2,1布局）
+            part_positions = [
+                (150, 70),   # 第1行第1个
+                (450, 70),   # 第1行第2个
+                (150, 200),  # 第2行第1个
+                (450, 200),  # 第2行第2个
+                (300, 330)   # 第3行第1个
+            ]
+            
+            def draw_cpu(canvas, x, y, color="#ff6b6b"):
+                canvas.create_rectangle(x-50, y-40, x+50, y+40, fill=color, outline="#ffffff", width=2, tags="")
+                canvas.create_rectangle(x-40, y-30, x+40, y+30, fill="#1a1a2e", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-30, y-20, x+30, y+20, fill=color, outline="#ffffff", width=1)
+                for i in range(5):
+                    canvas.create_line(x-45+i*10, y-40, x-45+i*10, y-50, fill="#ffffff", width=3)
+                    canvas.create_line(x-45+i*10, y+40, x-45+i*10, y+50, fill="#ffffff", width=3)
+                canvas.create_text(x, y, text="CPU", font=("Arial", 12, "bold"), fill="#ffffff")
+            
+            def draw_memory(canvas, x, y, color="#4ecdc4"):
+                canvas.create_rectangle(x-60, y-25, x+60, y+25, fill=color, outline="#ffffff", width=2, tags="")
+                canvas.create_rectangle(x-50, y-15, x+50, y+15, fill="#1a1a2e", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-50, y+10, x+50, y+20, fill="#000000", outline="#ffffff", width=1)
+                for i in range(4):
+                    canvas.create_line(x-40+i*30, y-15, x-40+i*30, y+15, fill="#ffffff", width=2)
+                canvas.create_text(x, y, text="内存", font=("SimHei", 12, "bold"), fill="#ffffff")
+            
+            def draw_gpu(canvas, x, y, color="#9b59b6"):
+                canvas.create_rectangle(x-60, y-35, x+60, y+35, fill=color, outline="#ffffff", width=2, tags="")
+                canvas.create_rectangle(x-50, y-25, x+50, y+25, fill="#1a1a2e", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-50, y-35, x+50, y-25, fill="#3498db", outline="#ffffff", width=1)
+                canvas.create_oval(x-15, y-10, x+15, y+20, fill="#3498db", outline="#ffffff", width=1)
+                canvas.create_text(x, y, text="显卡", font=("SimHei", 12, "bold"), fill="#ffffff")
+            
+            def draw_hdd(canvas, x, y, color="#e67e22"):
+                canvas.create_rectangle(x-55, y-30, x+55, y+30, fill=color, outline="#ffffff", width=2, tags="")
+                canvas.create_rectangle(x-45, y-20, x+45, y+20, fill="#1a1a2e", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-40, y+5, x+40, y+18, fill="#e67e22", outline="#ffffff", width=1)
+                canvas.create_arc(x-30, y-10, x+30, y+10, start=0, extent=360, fill="#ffffff", outline="", width=1)
+                canvas.create_text(x, y, text="硬盘", font=("SimHei", 12, "bold"), fill="#ffffff")
+            
+            def draw_motherboard(canvas, x, y, color="#27ae60"):
+                canvas.create_rectangle(x-70, y-45, x+70, y+45, fill=color, outline="#ffffff", width=2, tags="")
+                canvas.create_rectangle(x-60, y-35, x+60, y+35, fill="#1a1a2e", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-30, y-25, x+30, y+25, fill="#3498db", outline="#ffffff", width=1)
+                canvas.create_rectangle(x-55, y-30, x-45, y+30, fill="#ff6b6b", outline="#ffffff", width=1)
+                canvas.create_rectangle(x+45, y-30, x+55, y+30, fill="#ff6b6b", outline="#ffffff", width=1)
+                canvas.create_text(x, y, text="主板", font=("SimHei", 12, "bold"), fill="#ffffff")
+            
+            # 零件绘制函数映射
+            draw_functions = {
+                "CPU芯片": draw_cpu,
+                "内存条": draw_memory,
+                "显卡": draw_gpu,
+                "硬盘": draw_hdd,
+                "主板": draw_motherboard
+            }
+            
+            # 绘制所有零件
+            for i, (part, (x, y)) in enumerate(zip(parts, part_positions)):
+                # 创建可点击的区域
+                click_region = parts_canvas.create_rectangle(
+                    x-75, y-55, x+75, y+55,
+                    fill="#2c3e50", outline="#ffffff", width=2, tags=(part, "clickable")
+                )
+                part_click_regions[part] = click_region
+                
+                # 绘制零件图形
+                draw_functions[part](parts_canvas, x, y)
+                
+                # 添加零件名称标签
+                parts_canvas.create_text(
+                    x, y+65, text=part,
+                    font=("SimHei", 11, "bold"),
+                    fill="#ffffff"
+                )
+            
+            # 绑定点击事件
+            def on_canvas_click(event):
+                for part in parts:
+                    items = parts_canvas.find_withtag(part)
+                    if items:
+                        coords = parts_canvas.coords(items[0])
+                        if coords[0] <= event.x <= coords[2] and coords[1] <= event.y <= coords[3]:
+                            on_part_select(part)
+                            break
+            
+            parts_canvas.bind("<Button-1>", on_canvas_click)
+            
+            confirm_btn = tk.Button(
+                content_frame,
+                text="确认安装",
+                font=("SimHei", 12),
+                bg="#4caf50",
+                fg="#ffffff",
+                command=check_step1
+            )
+            confirm_btn.pack(pady=20)
+        
+        def show_step2():
+            for widget in content_frame.winfo_children():
+                widget.destroy()
+            
+            step_label.config(text="第二步：调整参数")
+            
+            instruction = tk.Label(
+                content_frame,
+                text="请调整以下参数到正确范围内（电压3.2-3.5V，频率2.5-3.0GHz，温度35-45℃）",
+                font=("SimHei", 12),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            instruction.pack(pady=10)
+            
+            params_frame = tk.Frame(content_frame, bg="#1a1a2e")
+            params_frame.pack(pady=20)
+            
+            sliders = {}
+            value_labels = {}
+            
+            # 参数固定范围
+            param_ranges = {
+                "电压": (3.0, 3.7),
+                "频率": (2.2, 3.3),
+                "温度": (30, 50)
+            }
+            
+            params_list = ["电压", "频率", "温度"]
+            for i, key in enumerate(params_list):
+                label = tk.Label(
+                    params_frame,
+                    text=f"{key}: {current_params[key]:.2f}",
+                    font=("SimHei", 12),
+                    fg="#ffffff",
+                    bg="#1a1a2e",
+                    width=15
+                )
+                label.grid(row=i, column=0, padx=10, pady=10)
+                
+                # 前两个参数（电压、频率）设置灵敏度为0.1
+                resolution = 0.1 if i < 2 else 1.0
+                from_val, to_val = param_ranges[key]
+                
+                slider = tk.Scale(
+                    params_frame,
+                    from_=from_val,
+                    to=to_val,
+                    orient="horizontal",
+                    length=300,
+                    bg="#1a1a2e",
+                    fg="#ffffff",
+                    highlightbackground="#1a1a2e",
+                    troughcolor="#4a4a4a",
+                    resolution=resolution,
+                    command=lambda v, k=key, lbl=label: update_param(k, lbl, v)
+                )
+                slider.set(current_params[key])
+                slider.grid(row=i, column=1, padx=10, pady=10)
+                sliders[key] = slider
+                value_labels[key] = label
+            
+            def update_param(key, label, value):
+                val = float(value)
+                current_params[key] = val
+                label.config(text=f"{key}: {val:.2f}")
+            
+            confirm_btn = tk.Button(
+                content_frame,
+                text="确认调整",
+                font=("SimHei", 12),
+                bg="#4caf50",
+                fg="#ffffff",
+                command=check_step2
+            )
+            confirm_btn.pack(pady=20)
+        
+        def show_step3():
+            for widget in content_frame.winfo_children():
+                widget.destroy()
+            
+            step_label.config(text="第三步：重新接线")
+            
+            instruction = tk.Label(
+                content_frame,
+                text="请将左边的线拖动连接到右边同色的端口",
+                font=("SimHei", 12),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            instruction.pack(pady=10)
+            
+            # 电线操作画布
+            canvas = tk.Canvas(
+                content_frame,
+                width=600,
+                height=350,
+                bg="#2c3e50",
+                highlightthickness=2,
+                highlightbackground="#e94560"
+            )
+            canvas.pack(pady=10)
+            
+            # 绘制灰色底座
+            canvas.create_rectangle(
+                50, 50, 550, 300,
+                fill="#7f8c8d",
+                outline="#bdc3c7",
+                width=3
+            )
+            
+            # 左边线缆位置和右边端口位置
+            left_points = [(100, 100), (100, 150), (100, 200), (100, 250)]
+            right_positions = [(500, 100), (500, 150), (500, 200), (500, 250)]
+            wire_colors_map = ["#ff0000", "#0000ff", "#00ff00", "#ffff00"]  # 红、蓝、绿、黄
+            wire_names = ["红色", "蓝色", "绿色", "黄色"]
+            port_names = ["输入1", "输入2", "输出1", "输出2"]
+            
+            # 打乱右边位置和颜色
+            random.shuffle(right_positions)
+            combined = list(zip(right_positions, wire_colors_map, port_names))
+            random.shuffle(combined)
+            right_points_shuffled = [p for p, c, n in combined]
+            right_colors_shuffled = [c for p, c, n in combined]
+            right_names_shuffled = [n for p, c, n in combined]
+            
+            # 绘制左边起点
+            for i, (x, y) in enumerate(left_points):
+                canvas.create_oval(
+                    x-12, y-12, x+12, y+12,
+                    fill=wire_colors_map[i],
+                    outline="#ffffff",
+                    width=2
+                )
+                canvas.create_text(
+                    x, y+25,
+                    text=wire_names[i],
+                    font=("SimHei", 10),
+                    fill="#ffffff"
+                )
+            
+            # 绘制右边终点
+            for i, (x, y) in enumerate(right_points_shuffled):
+                canvas.create_oval(
+                    x-12, y-12, x+12, y+12,
+                    fill=right_colors_shuffled[i],
+                    outline="#ffffff",
+                    width=2,
+                    tags=f"right_end_{i}"
+                )
+                canvas.create_text(
+                    x, y+25,
+                    text=right_names_shuffled[i],
+                    font=("SimHei", 10),
+                    fill="#ffffff"
+                )
+            
+            # 存储电线状态
+            wire_states = [False, False, False, False]
+            dragging_wire = None
+            wire_ids = []
+            
+            # 绘制初始电线
+            for i in range(4):
+                x1, y1 = left_points[i]
+                wire_id = canvas.create_line(
+                    x1, y1, x1+30, y1,
+                    fill=wire_colors_map[i],
+                    width=6,
+                    capstyle=tk.ROUND
+                )
+                wire_ids.append(wire_id)
+            
+            # 任务状态标签
+            status_label = tk.Label(
+                content_frame,
+                text=f"任务状态：已连接{sum(wire_states)}/4根电线",
+                font=("SimHei", 12),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            status_label.pack(pady=5)
+            
+            # 鼠标事件处理
+            def on_wire_click(event):
+                nonlocal dragging_wire
+                for i in range(4):
+                    if wire_states[i]:
+                        continue
+                    x1, y1 = left_points[i]
+                    distance = ((event.x - x1) ** 2 + (event.y - y1) ** 2) ** 0.5
+                    if distance < 25:
+                        dragging_wire = i
+                        canvas.tag_raise(wire_ids[i])
+                        break
+            
+            def on_wire_drag(event):
+                if dragging_wire is not None and not wire_states[dragging_wire]:
+                    i = dragging_wire
+                    x1, y1 = left_points[i]
+                    canvas.coords(wire_ids[i], x1, y1, event.x, event.y)
+            
+            def on_wire_release(event):
+                nonlocal dragging_wire
+                if dragging_wire is None:
+                    return
+                
+                i = dragging_wire
+                x1, y1 = left_points[i]
+                target_color = wire_colors_map[i]
+                
+                # 检测是否靠近相同颜色的右边端点
+                connected = False
+                for j in range(4):
+                    if right_colors_shuffled[j] == target_color:
+                        x2, y2 = right_points_shuffled[j]
+                        distance = ((event.x - x2) ** 2 + (event.y - y2) ** 2) ** 0.5
+                        if distance < 30:
+                            # 连接成功
+                            canvas.coords(wire_ids[i], x1, y1, x2, y2)
+                            wire_states[i] = True
+                            canvas.itemconfig(f"right_end_{j}", outline="#ffff00", width=3)
+                            status_label.config(text=f"任务状态：已连接{sum(wire_states)}/4根电线")
+                            connected = True
+                            
+                            # 检查是否完成
+                            if all(wire_states):
+                                step3_done[0] = True
+                                status_label.config(text="任务状态：接线完成！", fg="#00ff00")
+                                root.after(500, complete_task)
+                            break
+                
+                if not connected:
+                    # 恢复初始状态
+                    canvas.coords(wire_ids[i], x1, y1, x1+30, y1)
+                
+                dragging_wire = None
+            
+            # 绑定事件
+            canvas.bind("<ButtonPress-1>", on_wire_click)
+            canvas.bind("<B1-Motion>", on_wire_drag)
+            canvas.bind("<ButtonRelease-1>", on_wire_release)
+        
+        title_label = tk.Label(
+            root,
+            text="监控室 - 修复监控任务",
+            font=("SimHei", 20, "bold"),
+            fg="#e94560",
+            bg="#1a1a2e"
+        )
+        title_label.pack(pady=10)
+        
+        step_label = tk.Label(
+            root,
+            text="第一步：更换零件",
+            font=("SimHei", 16, "bold"),
+            fg="#ffd54f",
+            bg="#1a1a2e"
+        )
+        step_label.pack(pady=5)
+        
+        content_frame = tk.Frame(root, bg="#1a1a2e")
+        content_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        show_step1()
+        
+        root.protocol("WM_DELETE_WINDOW", root.destroy)
+        
+        if main_root:
+            root.wait_window()
+        else:
+            root.mainloop()
+        
+        return self.task_completed
+
+
+class BombDefuseTask(Task):
+    """拆弹任务 - 按正确顺序剪断电线（参考三角洲行动水淹大坝）"""
+    
+    def __init__(self):
+        super().__init__("拆弹任务", "炸弹位置", 2)
+        self.task_completed = False
+        self.task_window = None
+        self.on_close_callback = None
+    
+    def run_task_gui(self, main_root=None, on_close_callback=None):
+        """运行拆弹任务的图形化界面"""
+        self.on_close_callback = on_close_callback
+        
+        if self.task_window and tk.Toplevel.winfo_exists(self.task_window):
+            self.task_window.lift()
+            return False
+        
+        if main_root and isinstance(main_root, tk.Tk):
+            self.task_window = tk.Toplevel(main_root)
+        else:
+            self.task_window = tk.Tk()
+        
+        root = self.task_window
+        root.title("拆弹任务")
+        root.geometry("700x600")
+        root.configure(bg="#1a1a2e")
+        root.resizable(False, False)
+        root.wm_attributes("-topmost", True)
+        
+        self.task_completed = False
+        
+        WIRE_COLORS = {
+            "红": "#ff4444",
+            "蓝": "#4488ff",
+            "黄": "#ffdd44",
+            "绿": "#44dd44"
+        }
+        
+        color_names = list(WIRE_COLORS.keys())
+        correct_sequence = random.sample(color_names, 4)
+        current_index = 0
+        time_limit = 30
+        time_remaining = [time_limit]
+        
+        instruction_label = None
+        timer_label = None
+        sequence_display = None
+        canvas = None
+        buttons = {}
+        wire_cuts = {}  # 保存剪线按钮
+        wire_ids = {}  # 保存电线的画布ID
+        wire_positions = {}  # 保存电线位置信息
+        
+        def close_window():
+            if self.on_close_callback:
+                self.on_close_callback(self.task_completed)
+            root.destroy()
+        
+        def update_timer():
+            if time_remaining[0] > 0 and current_index < 4:
+                time_remaining[0] -= 1
+                timer_label.config(text=f"⏱️ 剩余时间：{time_remaining[0]}秒")
+                if time_remaining[0] <= 10:
+                    timer_label.config(fg="#ff4444")
+                root.after(1000, update_timer)
+            elif current_index < 4:
+                timer_label.config(text="💥 时间到！炸弹爆炸！", fg="#ff4444")
+                self.task_completed = False
+                root.after(500, close_window)
+        
+        def cut_wire(color):
+            nonlocal current_index
+            
+            if current_index >= 4 or time_remaining[0] <= 0:
+                return
+            
+            correct_color = correct_sequence[current_index]
+            
+            if color == correct_color:
+                cut_wire_on_canvas(color)
+                wire_cuts[color].config(state="disabled", bg="#666666", relief="sunken")
+                current_index += 1
+                sequence_display.config(
+                    text=f"✓ 剪对了！ ({current_index}/4)",
+                    fg="#44dd44"
+                )
+                
+                if current_index >= 4:
+                    self.task_completed = True
+                    timer_label.config(text="🎉 拆弹成功！", fg="#44dd44")
+                    root.after(500, close_window)
+            else:
+                sequence_display.config(
+                    text=f"✗ 剪错了！炸弹爆炸！",
+                    fg="#ff4444"
+                )
+                self.task_completed = False
+                root.after(500, close_window)
+        
+        def cut_wire_on_canvas(color):
+            """在画布上显示电线被剪断的效果"""
+            y, left_line, right_line, middle_rect = wire_ids[color]
+            
+            canvas.delete(left_line)
+            canvas.delete(right_line)
+            canvas.delete(middle_rect)
+            
+            canvas.create_line(50, y, 120, y, fill="#666666", width=6, dash=(5, 5))
+            canvas.create_line(380, y, 450, y, fill="#666666", width=6, dash=(5, 5))
+            
+            canvas.create_line(130, y, 170, y - 20, fill="#ff4444", width=3)
+            canvas.create_line(130, y, 170, y + 20, fill="#ff4444", width=3)
+            canvas.create_line(330, y, 370, y - 20, fill="#ff4444", width=3)
+            canvas.create_line(330, y, 370, y + 20, fill="#ff4444", width=3)
+            
+            canvas.create_text(250, y, text=f"╳ {color} ╳", font=("SimHei", 14, "bold"), fill="#666666")
+        
+        def create_ui():
+            nonlocal instruction_label, timer_label, sequence_display, canvas, buttons, wire_cuts, wire_ids
+            
+            title = tk.Label(
+                root,
+                text="⚠️ 拆弹任务 ⚠️",
+                font=("SimHei", 24, "bold"),
+                fg="#ff4444",
+                bg="#1a1a2e"
+            )
+            title.pack(pady=15)
+            
+            instruction_label = tk.Label(
+                root,
+                text="💡 按正确顺序剪断电线！先显示顺序，记住后再操作！",
+                font=("SimHei", 14),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            instruction_label.pack(pady=5)
+            
+            sequence_str = " → ".join(correct_sequence)
+            sequence_display = tk.Label(
+                root,
+                text=f"剪线顺序：{sequence_str}",
+                font=("SimHei", 18, "bold"),
+                fg="#ffdd44",
+                bg="#1a1a2e"
+            )
+            sequence_display.pack(pady=10)
+            
+            canvas = tk.Canvas(
+                root,
+                width=500,
+                height=320,
+                bg="#2c3e50",
+                highlightthickness=3,
+                highlightbackground="#ff4444"
+            )
+            canvas.pack(pady=10)
+            
+            canvas.create_rectangle(20, 10, 480, 300, fill="#1a1a2e", outline="#444444", width=3)
+            canvas.create_text(250, 40, text="💣 炸 弹 💣", font=("SimHei", 24, "bold"), fill="#ff4444")
+            
+            y_positions = [80, 130, 180, 230]
+            color_list = ["红", "蓝", "黄", "绿"]
+            random.shuffle(color_list)
+            
+            for i, color in enumerate(color_list):
+                y = y_positions[i]
+                left_line = canvas.create_line(50, y, 150, y, fill=WIRE_COLORS[color], width=6)
+                middle_rect = canvas.create_rectangle(150, y - 15, 350, y + 15, fill=WIRE_COLORS[color], width=0)
+                right_line = canvas.create_line(350, y, 450, y, fill=WIRE_COLORS[color], width=6)
+                canvas.create_text(250, y, text=color, font=("SimHei", 12, "bold"), fill="#ffffff")
+                wire_ids[color] = (y, left_line, right_line, middle_rect)
+            
+            btn_frame = tk.Frame(root, bg="#1a1a2e")
+            btn_frame.pack(pady=15)
+            
+            for color in color_names:
+                color_hex = WIRE_COLORS[color]
+                btn = tk.Button(
+                    btn_frame,
+                    text=f"剪{color}线",
+                    font=("SimHei", 16, "bold"),
+                    bg=color_hex,
+                    fg="#ffffff",
+                    width=8,
+                    height=2,
+                    relief="raised",
+                    bd=3,
+                    command=lambda c=color: cut_wire(c)
+                )
+                btn.pack(side="left", padx=10)
+                buttons[color] = btn
+                wire_cuts[color] = btn
+            
+            timer_label = tk.Label(
+                root,
+                text=f"⏱️ 剩余时间：{time_limit}秒",
+                font=("SimHei", 16),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            timer_label.pack(pady=10)
+            
+            hint_label = tk.Label(
+                root,
+                text="⚠️ 注意：必须按正确顺序剪线，剪错立即爆炸！",
+                font=("SimHei", 12),
+                fg="#888888",
+                bg="#1a1a2e"
+            )
+            hint_label.pack(pady=5)
+            
+            update_timer()
+        
+        def on_close():
+            if self.on_close_callback:
+                self.on_close_callback(self.task_completed)
+            root.destroy()
+        
+        root.protocol("WM_DELETE_WINDOW", on_close)
+        create_ui()
+        
+        if main_root:
+            root.wait_window()
+        else:
+            root.mainloop()
+        
+        return self.task_completed
+
+
 class TaskGenerator:
     """任务生成器：负责生成随机任务列表"""
     
@@ -3502,9 +4514,11 @@ class TaskGenerator:
         CalibrateDownEngineTask(),   # 下降引擎室 - 校准下降引擎
         CalibrateUpEngineTask(),     # 上升引擎室 - 校准上升引擎
         RepairReactorTask(),         # 反应堆室 - 修复反应堆
-        RefuelTask(),            # 燃料室 - 补充燃料
-        StartSatelliteTask(),
-        MorseCodeTask(),
+        RefuelTask(),                # 燃料室 - 补充燃料
+        StartSatelliteTask(),        # 通讯室 - 启动卫星
+        MorseCodeTask(),             # 主控室 - 摩斯密码
+        RepairMonitorTask(),         # 监控室 - 修复监控
+        BombDefuseTask(),           # 拆弹任务 - 按顺序剪断电线
     ]
     
     @staticmethod
@@ -3561,6 +4575,10 @@ class TaskGenerator:
             return StartSatelliteTask()
         elif isinstance(task_template, MorseCodeTask):
             return MorseCodeTask()
+        elif isinstance(task_template, RepairMonitorTask):
+            return RepairMonitorTask()
+        elif isinstance(task_template, BombDefuseTask):
+            return BombDefuseTask()
         # 普通Task类直接创建新实例
         else:
             return Task(
@@ -3568,4 +4586,10 @@ class TaskGenerator:
                 location=task_template.location,
                 difficulty=task_template.difficulty
             )
-#requests
+
+
+if __name__ == "__main__":
+    task = DownloadDataTask()    
+    result = task.run_task_gui()
+    
+

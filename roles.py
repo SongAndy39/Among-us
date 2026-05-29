@@ -3,6 +3,7 @@
 """
 角色定义类
 """
+import time
 from abc import ABC, abstractmethod
 from typing import Optional, TYPE_CHECKING
 
@@ -55,25 +56,52 @@ class Impostor(Role):
     def __init__(self):
         super().__init__()
         self.kill_cooldown = 2
-        self.current_cooldown = 0
+        self.current_kill_cooldown = 0
+        self.bomb_cooldown = 5
+        self.current_bomb_cooldown = 0
+        self.bomb_explode_time = None
     
     def set_kill_cooldown(self, cooldown: int):
         """设置击杀冷却时间"""
         self.kill_cooldown = 2
-        self.current_cooldown = 0
+        self.current_kill_cooldown = 0
     
-    def update_cooldown(self):
-        """更新冷却时间"""
-        if self.current_cooldown > 0:
-            self.current_cooldown -= 1
+    def update_cooldowns(self):
+        """更新所有冷却时间"""
+        if self.current_kill_cooldown > 0:
+            self.current_kill_cooldown -= 1
+        if self.current_bomb_cooldown > 0:
+            self.current_bomb_cooldown -= 1
     
     def kill(self) -> bool:
         """内鬼击杀技能"""
-        if self.current_cooldown == 0:
-            self.current_cooldown = self.kill_cooldown
+        if self.current_kill_cooldown == 0:
+            self.current_kill_cooldown = self.kill_cooldown
             return True
-        print(f"❌ 击杀冷却中，还剩{self.current_cooldown}回合")
+        print(f"❌ 击杀冷却中，还剩{self.current_kill_cooldown}回合")
         return False
+    
+    def place_bomb(self) -> bool:
+        """放置炸弹技能（3分钟后爆炸）"""
+        if self.current_bomb_cooldown == 0:
+            self.current_bomb_cooldown = self.bomb_cooldown
+            self.bomb_explode_time = time.time() + 180  
+            return True
+        print(f"❌ 炸弹冷却中，还剩{self.current_bomb_cooldown}回合")
+        return False
+    
+    def is_bomb_exploded(self) -> bool:
+        """检查炸弹是否已爆炸"""
+        if self.bomb_explode_time is None:
+            return False
+        return time.time() >= self.bomb_explode_time
+    
+    def get_bomb_time_remaining(self) -> int:
+        """获取炸弹爆炸剩余时间（秒）"""
+        if self.bomb_explode_time is None:
+            return 0
+        remaining = max(0, int(self.bomb_explode_time - time.time()))
+        return remaining
     
     def sabotage(self, system: str) -> bool:
         """破坏系统"""

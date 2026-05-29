@@ -72,6 +72,14 @@ class AmongUsGUI:
         self.oxygen_timeout_rounds = 2
         self.oxygen_remaining_rounds = 0
         
+        # 监控系统破坏核心变量（永久性破坏，需完成任务恢复）
+        self.monitor_sabotaged = False
+        self.monitor_sabotage_round = 0
+        self.monitor_repaired = False
+        
+        # 监控使用冷却（2回合冷却）
+        self.monitor_cooldown = {}  # {player_name: remaining_rounds}
+        
         # 内鬼穿梭功能核心变量
         self.impostor_teleport_cooldown = {}
         self.all_rooms = [
@@ -91,7 +99,11 @@ class AmongUsGUI:
         self.dead_player_locations = {}  # 记录死亡玩家的尸体位置（清理后标记为已移除）
         
         self.reported_bodies = {}  # 已报告的尸体字典 {player_name: "reported" | "voted_out"}
-        
+
+        # 炸弹状态标志（防止重复触发爆炸）
+        self.bomb_exploding = False
+        self.bomb_location = None  # 炸弹所在房间
+
         # 创建主界面
         self.create_main_frame()
 
@@ -203,11 +215,18 @@ class AmongUsGUI:
                         self.impostor_teleport_cooldown[player_name] -= 1
                         if self.impostor_teleport_cooldown[player_name] == 0:
                             del self.impostor_teleport_cooldown[player_name]
+                
+                # 更新监控使用冷却时间
+                for player_name in list(self.monitor_cooldown.keys()):
+                    if self.monitor_cooldown[player_name] > 0:
+                        self.monitor_cooldown[player_name] -= 1
+                        if self.monitor_cooldown[player_name] == 0:
+                            del self.monitor_cooldown[player_name]
                             
-                # 更新内鬼击杀冷却时间
+                # 更新内鬼冷却时间（击杀和炸弹）
                 for player in self.game.players:
-                    if hasattr(player.role, 'update_cooldown'):
-                        player.role.update_cooldown()
+                    if hasattr(player.role, 'update_cooldowns'):
+                        player.role.update_cooldowns()
                             
                 
                 # 更新全局回合数
@@ -254,6 +273,14 @@ class AmongUsGUI:
         self.oxygen_sabotage_round = 0
         self.oxygen_repaired = False
         self.oxygen_remaining_rounds = 0
+        
+        # 重置监控系统状态
+        self.monitor_sabotaged = False
+        self.monitor_sabotage_round = 0
+        self.monitor_repaired = False
+        
+        # 重置监控使用冷却
+        self.monitor_cooldown = {}
         
         # 重置内鬼穿梭冷却
         self.impostor_teleport_cooldown = {}
@@ -798,10 +825,8 @@ class AmongUsGUI:
             # 标记为被投票出去的玩家（不能再次报告）
             self.reported_bodies[accused.name] = "voted_out"
             messagebox.showinfo("投票结果", f"❌ {accused_name}不是内鬼！\n投票失败！")
-        
-        # ========== 核心修改：投票结束后自动清理所有尸体 ==========
-        
-        
+
+        # 核心修改：投票结束后自动清理所有尸体
         # 检查游戏是否结束
         self.check_game_over()
         
@@ -972,13 +997,12 @@ class AmongUsGUI:
             confirm_btn.pack(side="left", padx=10)
         else:
             # Windows上使用普通按钮
-            # Windows上使用普通按钮
             confirm_btn = tk.Button(
                 btn_frame,
                 text="确认穿梭",
                 font=(self.font_family, 12),
-                bg="#00ffff",
-                fg="#000000",
+                bg="#2196f3",
+                fg="#ffffff",
                 padx=20,
                 pady=5,
                 bd=2,
@@ -997,10 +1021,151 @@ class AmongUsGUI:
                 relief="flat",
                 command=teleport_window.destroy
             )
+            confirm_btn.pack(side="left", padx=10)
         cancel_btn.pack(side="left", padx=10)
     
+    def update_bomb_timer(self):
+        """实时更新炸弹倒计时（每秒更新一次）"""
+        if self.game.game_over or self.bomb_exploding:
+            return
+        
+        has_bomb = False
+        remaining = 0
+        bomb_player = None
+        for player in self.game.players:
+            if isinstance(player.role, Impostor) and player.role.bomb_explode_time:
+                remaining = player.role.get_bomb_time_remaining()
+                has_bomb = True
+                bomb_player = player
+                break
+        
+        if has_bomb:
+            if remaining <= 0:
+                self.execute_bomb_explosion(bomb_player)
+                return
+            
+            minutes = remaining // 60
+            seconds = remaining % 60
+            self.bomb_timer_label.config(text=f"💣 炸弹倒计时：{minutes}:{seconds:02d}")
+            self.bomb_remaining_time = remaining
+            
+            if remaining <= 10:
+                self.bomb_timer_label.config(fg="#ff0000")
+            else:
+                self.bomb_timer_label.config(fg="#ff5722")
+        else:
+            self.bomb_timer_label.config(text="")
+            self.bomb_remaining_time = 0
+        
+        self.root.after(1000, self.update_bomb_timer)
+
+    def execute_bomb_explosion(self, player):
+        """执行炸弹爆炸"""
+        self.bomb_exploding = True
+        
+        bomb_location = player.current_location
+        player.role.bomb_explode_time = None
+        
+        self.add_log(f"💥 炸弹在{bomb_location}爆炸了！")
+        
+        damage_msg = ""
+        system_msg = ""
+        
+        if "氧气" in bomb_location:
+            self.oxygen_sabotaged = True
+            self.oxygen_repaired = False
+            self.oxygen_remaining_rounds = 2
+            self.oxygen_sabotage_round = self.global_round
+            self.add_log(f"⚠️ 氧气系统受损！船员需要在2回合内修复！")
+            system_msg = "💥 氧气系统受损！"
+        elif "监控" in bomb_location:
+            self.monitor_sabotaged = True
+            self.add_log(f"⚠️ 监控系统受损！需要完成任务才能恢复！")
+            system_msg = "💥 监控系统受损！"
+        
+        dead_players = []
+        for target in self.game.players:
+            if target.is_alive and target.current_location == bomb_location:
+                if not isinstance(target.role, Impostor):
+                    dead_players.append(target)
+        
+        if dead_players:
+            dead_names = ", ".join([p.name for p in dead_players])
+            self.add_log(f"☠️ 炸弹炸死了：{dead_names}")
+            damage_msg = f"☠️ 炸弹造成{len(dead_players)}人死亡：{dead_names}"
+            
+            for p in dead_players:
+                p.is_alive = False
+        
+        self.bomb_timer_label.config(text="")
+        self.bomb_remaining_time = 0
+        self.bomb_location = None  # 清除炸弹位置
+        
+        if system_msg or damage_msg:
+            final_msg = f"💥 {bomb_location}的炸弹爆炸了！"
+            if system_msg:
+                final_msg += f"\n{system_msg}"
+            if damage_msg:
+                final_msg += f"\n{damage_msg}"
+            messagebox.showinfo("炸弹爆炸", final_msg)
+        
+        self.bomb_exploding = False
+        
+        if self.game.check_game_over():
+            self.show_game_over()
+        else:
+            self.create_game_frame()
+
+    def check_bomb_explosion(self):
+        """检查炸弹是否爆炸（实时检测）"""
+        for player in self.game.players:
+            if isinstance(player.role, Impostor) and player.role.bomb_explode_time:
+                if player.role.is_bomb_exploded():
+                    bomb_location = player.current_location
+                    self.add_log(f"💥 炸弹在{bomb_location}爆炸了！")
+                    messagebox.showinfo("炸弹爆炸", f"💥 {bomb_location}的炸弹爆炸了！")
+                    
+                    # 根据爆炸位置触发修复任务
+                    if "氧气" in bomb_location:
+                        self.oxygen_sabotaged = True
+                        self.oxygen_repaired = False
+                        self.oxygen_remaining_rounds = 2
+                        self.oxygen_sabotage_round = self.global_round
+                        self.add_log(f"⚠️ 氧气系统受损！船员需要在2回合内修复！")
+                        messagebox.showinfo("系统损坏", "💥 氧气系统受损！\n船员需要在2回合内修复！")
+                    elif "监控" in bomb_location:
+                        self.monitor_sabotaged = True
+                        self.add_log(f"⚠️ 监控系统受损！需要完成任务才能恢复！")
+                        messagebox.showinfo("系统损坏", "💥 监控系统受损！\n需要完成任务才能恢复！")
+                    
+                    dead_players = []
+                    for target in self.game.players:
+                        if target.is_alive and target.current_location == bomb_location:
+                            if not isinstance(target.role, Impostor):
+                                dead_players.append(target)
+                    
+                    if dead_players:
+                        dead_names = ", ".join([p.name for p in dead_players])
+                        self.add_log(f"☠️ 炸弹炸死了：{dead_names}")
+                        messagebox.showinfo("伤亡报告", f"☠️ 炸弹造成{len(dead_players)}人死亡：\n{dead_names}")
+                        
+                        for p in dead_players:
+                            p.is_alive = False
+                    
+                    player.role.bomb_explode_time = None
+                    self.bomb_location = None
+                    
+                    if self.game.check_game_over():
+                        self.show_game_over()
+                        return True
+        return False
+
     def create_game_frame(self):
         """创建游戏主界面（死亡玩家保留并进入旁观模式，尸体固定位置）"""
+        # 首先检查炸弹是否爆炸
+        if self.check_bomb_explosion():
+            return
+        
         # 清除所有现有组件
         for widget in self.root.winfo_children():
             widget.destroy()
@@ -1031,6 +1196,18 @@ class AmongUsGUI:
             elif self.global_round == 1:
                 round_text += f" | 🔮 第一回合无法使用穿梭"
         
+        # 添加监控使用冷却提示（仅存活玩家显示）
+        if self.current_player.is_alive and self.current_player not in self.spectator_players:
+            if self.current_player.name in self.monitor_cooldown:
+                round_text += f" | 📡 监控冷却剩余：{self.monitor_cooldown[self.current_player.name]}回合"
+        
+        # 显示炸弹倒计时（所有玩家可见）
+        self.bomb_remaining_time = 0
+        for player in self.game.players:
+            if isinstance(player.role, Impostor) and player.role.bomb_explode_time:
+                self.bomb_remaining_time = player.role.get_bomb_time_remaining()
+                break
+        
         round_label = tk.Label(
             top_frame, 
             text=round_text, 
@@ -1039,6 +1216,19 @@ class AmongUsGUI:
             bg="#0f3460"
         )
         round_label.pack(side="left", padx=20)
+        
+        # 实时炸弹倒计时标签
+        self.bomb_timer_label = tk.Label(
+            top_frame,
+            text="",
+            font=(self.font_family, 16),
+            fg="#ff5722",
+            bg="#0f3460"
+        )
+        self.bomb_timer_label.pack(side="left", padx=20)
+        
+        # 启动炸弹倒计时更新
+        self.update_bomb_timer()
         
         # 显示当前玩家剩余紧急会议次数 + 位置限制提示（旁观玩家显示次数但无法使用）
         remaining_meetings = self.emergency_meeting_count.get(self.current_player.name, 0)
@@ -1368,6 +1558,11 @@ class AmongUsGUI:
             
             # 根据角色显示不同按钮
             if isinstance(self.current_player.role, Crewmate):
+                # 检查是否在监控室且监控被破坏
+                in_monitor_room = self.current_player.current_location == "监控室"
+                monitor_broken = getattr(self, 'monitor_sabotaged', False)
+                in_bomb_room = self.bomb_location and self.current_player.current_location == self.bomb_location
+                
                 # 步数超限检查
                 if self.action_steps > self.max_steps:
                     task_label = tk.Label(
@@ -1379,38 +1574,49 @@ class AmongUsGUI:
                     )
                     task_label.pack(fill="x", pady=5)
                 else:
-                    # 为所有平台创建兼容的按钮
+                    # 拆弹任务优先（当玩家在有炸弹的房间时）
+                    if in_bomb_room and self.bomb_location:
+                        task_text = "💣 拆弹任务"
+                        task_command = self.handle_defuse_bomb
+                        task_bg = "#ff4444"
+                    elif in_monitor_room and monitor_broken:
+                        task_text = "修复监控"
+                        task_command = self.handle_repair_monitor
+                        task_bg = "#4caf50"
+                    else:
+                        task_text = "完成任务"
+                        task_command = lambda: self.handle_complete_task(self.current_player)
+                        task_bg = "#4caf50"
+                    
                     if sys.platform == 'darwin':
-                        # Mac上使用ttk按钮
                         task_button = ttk.Button(
                             action_frame, 
-                            text="完成任务", 
+                            text=task_text, 
                             style="Task.TButton",
-                            command=lambda: self.handle_complete_task(self.current_player)
+                            command=task_command
                         )
                         style = ttk.Style()
                         style.configure("Task.TButton", 
                                       font=(self.font_family, 12),
                                       padding=(10, 5),
-                                      background="#4CAF50",
+                                      background=task_bg,
                                       foreground="#FFFFFF")
                         style.map("Task.TButton",
-                                      background=[("active", "#388E3C"),("!active", "#4CAF50")],
+                                      background=[("active", "#388E3C"),("!active", task_bg)],
                                       foreground=[("active", "#E8F5E9"),("!active", "#FFFFFF")])
                     else:
-                        # Windows上使用普通按钮
                         task_button = tk.Button(
                             action_frame, 
-                            text="完成任务", 
+                            text=task_text, 
                             font=(self.font_family, 12),
-                            bg="#4caf50",
+                            bg=task_bg,
                             fg="#ffffff",
                             padx=10,
                             pady=5,
                             width=15,
                             bd=2,
                             relief="flat",
-                            command=lambda: self.handle_complete_task(self.current_player)
+                            command=task_command
                         )
                     task_button.pack(fill="x", pady=5)
             elif isinstance(self.current_player.role, Impostor):
@@ -1487,7 +1693,7 @@ class AmongUsGUI:
                 teleport_button.pack(fill="x", pady=5)
                 
                 # 内鬼击杀判定
-                if self.current_player.role.current_cooldown == 0 and self.global_round > 1:
+                if self.current_player.role.current_kill_cooldown == 0 and self.global_round > 1:
                     if self.action_steps > self.max_steps:
                         kill_label = tk.Label(
                             action_frame, 
@@ -1544,7 +1750,7 @@ class AmongUsGUI:
                 else:
                     cooldown_label = tk.Label(
                         action_frame, 
-                        text=f"击杀冷却中: {self.current_player.role.current_cooldown}回合", 
+                        text=f"击杀冷却中: {self.current_player.role.current_kill_cooldown}回合", 
                         font=(self.font_family, 12),
                         fg="#ff9800",
                         bg="#1a1a2e"
@@ -1596,28 +1802,79 @@ class AmongUsGUI:
                             command=lambda: self.handle_sabotage(self.current_player)
                         )
                     sabotage_button.pack(fill="x", pady=5)
+                
+                # 放置炸弹按钮（5回合冷却，3分钟爆炸）
+                if self.current_player.role.current_bomb_cooldown == 0:
+                    if self.action_steps > self.max_steps:
+                        bomb_label = tk.Label(
+                            action_frame, 
+                            text="⚠️ 行动步数已达上限", 
+                            font=(self.font_family, 12),
+                            fg="#ff0000",
+                            bg="#1a1a2e"
+                        )
+                        bomb_label.pack(fill="x", pady=5)
+                    else:
+                        if sys.platform == 'darwin':
+                            bomb_button = ttk.Button(
+                                action_frame, 
+                                text="放置炸弹", 
+                                style="Bomb.TButton",
+                                command=lambda: self.handle_place_bomb(self.current_player)
+                            )
+                            style = ttk.Style()
+                            style.configure("Bomb.TButton", 
+                                          font=(self.font_family, 12),
+                                          padding=(10, 5),
+                                          background="#FF5722",
+                                          foreground="#FFFFFF")
+                            style.map("Bomb.TButton",
+                                          background=[("active", "#E64A19"),("!active", "#FF5722")],
+                                          foreground=[("active", "#FFF3E0"),("!active", "#FFFFFF")])
+                        else:
+                            bomb_button = tk.Button(
+                                action_frame, 
+                                text="放置炸弹", 
+                                font=(self.font_family, 12),
+                                bg="#ff5722",
+                                fg="#ffffff",
+                                padx=10,
+                                pady=5,
+                                width=15,
+                                bd=2,
+                                relief="flat",
+                                command=lambda: self.handle_place_bomb(self.current_player)
+                            )
+                        bomb_button.pack(fill="x", pady=5)
+                else:
+                    bomb_cooldown_label = tk.Label(
+                        action_frame, 
+                        text=f"炸弹冷却中: {self.current_player.role.current_bomb_cooldown}回合", 
+                        font=(self.font_family, 12),
+                        fg="#ff9800",
+                        bg="#1a1a2e"
+                    )
+                    bomb_cooldown_label.pack(fill="x", pady=5)
             
-                        # 报告尸体按钮（根据尸体清理状态更新）
+            # 报告尸体按钮（根据尸体清理状态和报告状态更新）
             has_body = False
-            # 检查当前房间是否有未清理的尸体
             for player in self.game.players:
                 if not player.is_alive and player.current_location == self.current_player.current_location:
-                    if not self.dead_player_locations.get(player.name, {}).get("cleared", False):
+                    # 检查尸体是否已清理或已报告
+                    is_cleared = self.dead_player_locations.get(player.name, {}).get("cleared", False)
+                    is_reported = self.reported_bodies.get(player.name) is not None
+                    if not is_cleared and not is_reported:
                         has_body = True
                         break
             
-            # 设置默认值
             report_state = "disabled"
             report_bg = "#666666"
             
-            # 如果条件满足，则启用按钮
             if not self.action_steps > self.max_steps and has_body:
                 report_state = "normal"
                 report_bg = "#ff9800"
             
-            # 为所有平台创建兼容的按钮
             if sys.platform == 'darwin':
-                # Mac上使用ttk按钮
                 report_button = ttk.Button(
                     action_frame, 
                     text="报告尸体", 
@@ -1641,16 +1898,7 @@ class AmongUsGUI:
                                   padding=(10, 5),
                                   background="#CCCCCC",
                                   foreground="#999999")
-                    style.map("Report.TButton",
-                                  background=[("active", "#BBBBBB"),("!active", "#CCCCCC")],
-                                  foreground=[("active", "#666666"),("!active", "#999999")])
-                # 禁用状态的特殊处理
-                if report_state == "disabled":
-                    style.map("Report.TButton",
-                                  background=[("disabled", "#CCCCCC")],
-                                  foreground=[("disabled", "#999999")])
             else:
-                # Windows上使用普通按钮
                 report_button = tk.Button(
                     action_frame, 
                     text="报告尸体", 
@@ -1704,6 +1952,61 @@ class AmongUsGUI:
             )
         next_button.pack(fill="x", pady=5)
         
+        # 查看监控按钮（仅监控室可用且监控未被破坏，且不在冷却中）
+        is_in_monitor = self.current_player.current_location == "监控室" and self.current_player.is_alive and self.current_player not in self.spectator_players
+        monitor_not_sabotaged = not getattr(self, 'monitor_sabotaged', False)
+        monitor_on_cooldown = self.current_player.name in self.monitor_cooldown
+        monitor_state = "normal" if (is_in_monitor and monitor_not_sabotaged and not monitor_on_cooldown) else "disabled"
+        monitor_bg = "#ffd54f" if (is_in_monitor and monitor_not_sabotaged and not monitor_on_cooldown) else "#666666"
+        monitor_fg = "#000000" if (is_in_monitor and monitor_not_sabotaged and not monitor_on_cooldown) else "#999999"
+        
+        monitor_text = "查看监控"
+        if monitor_on_cooldown:
+            monitor_text = f"查看监控（冷却{self.monitor_cooldown[self.current_player.name]}回合）"
+        elif not monitor_not_sabotaged:
+            monitor_text = "查看监控（已破坏）"
+        
+        if sys.platform == 'darwin':
+            monitor_button = ttk.Button(
+                action_frame, 
+                text=monitor_text, 
+                style="Monitor.TButton",
+                state=monitor_state,
+                command=self.view_monitor
+            )
+            style = ttk.Style()
+            if is_in_monitor and monitor_not_sabotaged and not monitor_on_cooldown:
+                style.configure("Monitor.TButton", 
+                              font=(self.font_family, 12),
+                              padding=(10, 5),
+                              background="#FFD54F",
+                              foreground="#000000")
+                style.map("Monitor.TButton",
+                          background=[("active", "#FFC107"),("!active", "#FFD54F")],
+                          foreground=[("active", "#000000"),("!active", "#000000")])
+            else:
+                style.configure("Monitor.TButton", 
+                              font=(self.font_family, 12),
+                              padding=(10, 5),
+                              background="#CCCCCC",
+                              foreground="#999999")
+        else:
+            monitor_button = tk.Button(
+                action_frame, 
+                text=monitor_text, 
+                font=(self.font_family, 12),
+                bg=monitor_bg,
+                fg=monitor_fg,
+                padx=10,
+                pady=5,
+                width=22,
+                bd=2,
+                relief="flat",
+                state=monitor_state,
+                command=self.view_monitor
+            )
+        monitor_button.pack(fill="x", pady=5)
+        
         # 底部日志区域
         log_frame = tk.LabelFrame(self.game_frame, text="游戏日志", bg="#1a1a2e", fg="#ffffff", font=(self.font_family, 12))
         log_frame.pack(fill="x", padx=20, pady=10)
@@ -1719,6 +2022,219 @@ class AmongUsGUI:
         )
         self.log_text.pack(fill="both", expand=True, padx=10, pady=10)
         self.log_text.config(state="disabled")
+
+    def view_monitor(self):
+        """查看监控界面"""
+        monitor_window = tk.Toplevel(self.root)
+        monitor_window.title("监控室")
+        monitor_window.geometry("900x700+410+140")
+        monitor_window.configure(bg="#1a1a2e")
+        monitor_window.transient(self.root)
+        monitor_window.grab_set()
+        
+        # 监听窗口关闭事件，关闭时也设置冷却
+        def on_monitor_window_close():
+            set_monitor_cooldown()
+            self.add_log(f"📡 {self.current_player.name}关闭了监控窗口，对所有存活玩家设置2回合冷却")
+            monitor_window.destroy()
+            self.create_game_frame()
+        
+        monitor_window.protocol("WM_DELETE_WINDOW", on_monitor_window_close)
+        
+        title_label = tk.Label(
+            monitor_window,
+            text="📡 监控室",
+            font=(self.font_family, 20, "bold"),
+            fg="#ffd54f",
+            bg="#1a1a2e"
+        )
+        title_label.pack(pady=15)
+        
+        monitor_frame = tk.LabelFrame(
+            monitor_window, 
+            text="监控画面", 
+            bg="#7f8c8d", 
+            fg="#ffffff", 
+            font=(self.font_family, 12),
+            padx=10,
+            pady=10
+        )
+        monitor_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        map_canvas = tk.Canvas(monitor_frame, width=800, height=550, bg="#0f0f0f", highlightthickness=0)
+        map_canvas.pack(fill="both", expand=True)
+        
+        location_positions = {
+            "飞船大厅": (400, 80),
+            "电力室": (275, 380),
+            "上升引擎室": (150, 80),
+            "下降引擎室": (150, 380),
+            "反应堆": (100, 230),
+            "氧气室": (600, 80),
+            "医疗室": (250, 230),
+            "通讯室": (550, 380),
+            "监控室": (700, 380),
+            "燃料室": (400, 380),
+            "主控室": (500, 280)
+        }
+        
+        for location, connections in self.game.map.connections.items():
+            x1, y1 = location_positions[location]
+            for connected in connections:
+                x2, y2 = location_positions[connected]
+                if location < connected:
+                    map_canvas.create_line(x1, y1, x2, y2, fill="#4a4a4a", width=3)
+        
+        detected_bodies = []
+        
+        for location, (x, y) in location_positions.items():
+            is_bomb_room = self.bomb_location == location
+            
+            if is_bomb_room:
+                map_canvas.create_rectangle(x-50, y-35, x+50, y+35,
+                                          fill="#3d0000", outline="#ff0000", width=4)
+                map_canvas.create_rectangle(x-40, y-25, x+40, y+25,
+                                          fill="#1a1a2e", outline="#ff4444", width=2)
+                map_canvas.create_text(x, y, text=f"💣{location}", fill="#ff4444",
+                                     font=(self.font_family, 10, "bold"), anchor="center")
+            else:
+                map_canvas.create_rectangle(x-40, y-25, x+40, y+25,
+                                          fill="#1a1a2e", outline="#3498db", width=2)
+                map_canvas.create_text(x, y, text=location, fill="#ffffff",
+                                     font=(self.font_family, 10), anchor="center")
+            
+            players_in_room = [p for p in self.game.players if p.current_location == location and p.is_alive]
+            bodies_in_room = [p for p in self.game.players if p.current_location == location and not p.is_alive 
+                             and not self.dead_player_locations.get(p.name, {}).get("cleared", False)
+                             and self.reported_bodies.get(p.name) is None]
+            
+            for body in bodies_in_room:
+                if body not in detected_bodies:
+                    detected_bodies.append(body)
+            
+            if players_in_room:
+                player_count = len(players_in_room)
+                map_canvas.create_text(x, y+30, text=f"🟢 {player_count}", 
+                                     fill="#00ff00", font=(self.font_family, 10))
+            
+            if bodies_in_room:
+                body_count = len(bodies_in_room)
+                map_canvas.create_text(x, y+45, text=f"🔴 {body_count}", 
+                                     fill="#ff0000", font=(self.font_family, 10))
+        
+        def set_monitor_cooldown():
+            """设置监控冷却（所有存活玩家2回合冷却）"""
+            for player in self.game.players:
+                if player.is_alive and player not in self.spectator_players:
+                    self.monitor_cooldown[player.name] = 2
+        
+        def finish_viewing():
+            set_monitor_cooldown()
+            self.add_log(f"📡 {self.current_player.name}查看了监控，对所有存活玩家设置2回合冷却")
+            monitor_window.destroy()
+            self.create_game_frame()
+        
+        def report_body_from_monitor():
+            if not detected_bodies:
+                messagebox.showwarning("警告", "监控画面中没有检测到尸体！", parent=monitor_window)
+                return
+            set_monitor_cooldown()
+            self.add_log(f"📡 {self.current_player.name}在监控室报告尸体，对所有存活玩家设置2回合冷却")
+            
+            if len(detected_bodies) == 1:
+                victim = detected_bodies[0]
+            else:
+                body_window = tk.Toplevel(monitor_window)
+                body_window.title("选择要报告的尸体")
+                body_window.geometry("400x300+600+300")
+                body_window.configure(bg="#1a1a2e")
+                body_window.transient(monitor_window)
+                body_window.grab_set()
+                
+                tk.Label(
+                    body_window,
+                    text="监控检测到多具尸体，请选择要报告的尸体：",
+                    font=(self.font_family, 12),
+                    fg="#ffffff",
+                    bg="#1a1a2e"
+                ).pack(pady=10)
+                
+                body_listbox = tk.Listbox(
+                    body_window,
+                    font=(self.font_family, 12),
+                    bg="#0f3460",
+                    fg="#ffffff",
+                    selectbackground="#2196f3",
+                    height=5
+                )
+                body_listbox.pack(padx=20, pady=10)
+                
+                for body in detected_bodies:
+                    body_listbox.insert(tk.END, f"{body.name} ({body.current_location})")
+                
+                def confirm_report():
+                    if body_listbox.curselection():
+                        idx = body_listbox.curselection()[0]
+                        victim = detected_bodies[idx]
+                        body_window.destroy()
+                        monitor_window.destroy()
+                        self._execute_report(self.current_player, victim)
+                    else:
+                        messagebox.showwarning("警告", "请选择一具尸体！", parent=body_window)
+                
+                tk.Button(
+                    body_window,
+                    text="确认报告",
+                    font=(self.font_family, 12),
+                    bg="#4caf50",
+                    fg="#ffffff",
+                    padx=20,
+                    pady=5,
+                    command=confirm_report
+                ).pack(pady=10)
+                return
+            
+            monitor_window.destroy()
+            self._execute_report(self.current_player, victim)
+        
+        button_frame = tk.Frame(monitor_window, bg="#1a1a2e")
+        button_frame.pack(pady=15)
+        
+        has_body = len(detected_bodies) > 0
+        
+        report_state = "normal" if has_body else "disabled"
+        report_bg = "#ff9800" if has_body else "#666666"
+        report_fg = "#ffffff"
+        report_text = f"报告尸体 ({len(detected_bodies)}具)" if has_body else "报告尸体 (无尸体)"
+        
+        report_button = tk.Button(
+            button_frame,
+            text=report_text,
+            font=(self.font_family, 12),
+            bg=report_bg,
+            fg=report_fg,
+            padx=20,
+            pady=5,
+            bd=2,
+            relief="flat",
+            state=report_state,
+            command=report_body_from_monitor
+        )
+        report_button.pack(side="left", padx=10)
+        
+        finish_button = tk.Button(
+            button_frame,
+            text="完成查看",
+            font=(self.font_family, 12),
+            bg="#4caf50",
+            fg="#ffffff",
+            padx=20,
+            pady=5,
+            bd=2,
+            relief="flat",
+            command=finish_viewing
+        )
+        finish_button.pack(side="left", padx=10)
 
     def draw_map(self, parent_frame):
         """绘制高分辨率地图，旁观玩家可切换视角但尸体固定（清理后不显示尸体标记）"""
@@ -1778,10 +2294,6 @@ class AmongUsGUI:
             is_current = location == current_location
             # 检查该位置是否可移动
             can_move = location in available_moves
-            
-            # 旁观玩家：当前位置应该是尸体位置
-            if self.current_player in self.spectator_players:
-                is_current = location == self.current_player.current_location
             
             # 根据状态设置按钮样式
             if is_current:
@@ -2152,34 +2664,20 @@ class AmongUsGUI:
         elif calibrate_up_engine_task:
             task_executed = True
             task_name = calibrate_up_engine_task.name
-            max_retries = 2
-            retry_count = 0
-            while retry_count < max_retries and not task_completed:
-                try:
-                    task_completed = calibrate_up_engine_task.run_task_gui(main_root=self.root)
-                    if not task_completed and retry_count < max_retries - 1:
-                        messagebox.showinfo("提示", "上升引擎任务窗口未正常打开，正在重试...", parent=self.root)
-                except Exception as e:
-                    print(f"上升引擎任务失败（重试{retry_count+1}）：{str(e)}")
-                    retry_count += 1
-                    if retry_count >= max_retries:
-                        messagebox.showerror("任务失败", f"上升引擎任务执行失败：{str(e)}", parent=self.root)
+            try:
+                task_completed = calibrate_up_engine_task.run_task_gui(main_root=self.root)
+            except Exception as e:
+                print(f"校准上升引擎任务异常：{str(e)}")
+                messagebox.showerror("任务异常", f"校准上升引擎任务执行出错：{str(e)}", parent=self.root)
         
         elif repair_reactor_task:
             task_executed = True
             task_name = repair_reactor_task.name
-            max_retries = 2
-            retry_count = 0
-            while retry_count < max_retries and not task_completed:
-                try:
-                    task_completed = repair_reactor_task.run_task_gui(main_root=self.root)
-                    if not task_completed and retry_count < max_retries - 1:
-                        messagebox.showinfo("提示", "反应堆任务窗口未正常打开，正在重试...", parent=self.root)
-                except Exception as e:
-                    print(f"反应堆任务失败（重试{retry_count+1}）：{str(e)}")
-                    retry_count += 1
-                    if retry_count >= max_retries:
-                        messagebox.showerror("任务失败", f"反应堆任务执行失败：{str(e)}", parent=self.root)
+            try:
+                task_completed = repair_reactor_task.run_task_gui(main_root=self.root)
+            except Exception as e:
+                print(f"反应堆任务异常：{str(e)}")
+                messagebox.showerror("任务异常", f"反应堆任务执行出错：{str(e)}", parent=self.root)
         
         elif fuel_supply_task:
             task_executed = True
@@ -2425,23 +2923,210 @@ class AmongUsGUI:
             messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n无法破坏系统")
             return
         
-        self.oxygen_sabotaged = True
-        self.oxygen_sabotage_round = self.global_round
-        self.oxygen_repaired = False
-        self.oxygen_remaining_rounds = self.oxygen_timeout_rounds
+        # 创建破坏选择窗口
+        sabotage_window = tk.Toplevel(self.root)
+        sabotage_window.title("破坏系统")
+        sabotage_window.geometry("500x300+710+390")
+        sabotage_window.configure(bg="#1a1a2e")
+        sabotage_window.transient(self.root)
+        sabotage_window.grab_set()
         
+        # 标题
+        title_label = tk.Label(
+            sabotage_window,
+            text="🔧 选择要破坏的系统",
+            font=(self.font_family, 20, "bold"),
+            fg="#e94560",
+            bg="#1a1a2e"
+        )
+        title_label.pack(pady=20)
+        
+        # 按钮框架
+        button_frame = tk.Frame(sabotage_window, bg="#1a1a2e")
+        button_frame.pack(pady=20)
+        
+        def sabotage_oxygen():
+            """破坏氧气系统"""
+            self.oxygen_sabotaged = True
+            self.oxygen_sabotage_round = self.global_round
+            self.oxygen_repaired = False
+            self.oxygen_remaining_rounds = self.oxygen_timeout_rounds
+            
+            self.action_steps += 1
+            
+            player.role.sabotage("氧气")
+            self.add_log(f"🔧 {player.name}在第{self.global_round}回合破坏了氧气系统！船员仅有{self.oxygen_remaining_rounds}个回合修复时间！")
+            
+            messagebox.showinfo("破坏成功", f"⚠️ 氧气系统已被破坏！\n船员仅有{self.oxygen_remaining_rounds}个回合修复时间，超时则内鬼直接胜利！\n该任务不占用3个常规任务数量")
+            
+            sabotage_window.destroy()
+            
+            if self.action_steps > self.max_steps:
+                messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n自动切换至下一位玩家")
+                self.switch_to_next_player()
+            else:
+                self.create_game_frame()
+        
+        def sabotage_monitor():
+            """破坏监控系统"""
+            self.monitor_sabotaged = True
+            self.monitor_sabotage_round = self.global_round
+            self.monitor_repaired = False
+            
+            self.action_steps += 1
+            
+            player.role.sabotage("监控")
+            self.add_log(f"🔧 {player.name}在第{self.global_round}回合破坏了监控系统！需要完成任务才能恢复！")
+            
+            messagebox.showinfo("破坏成功", f"⚠️ 监控系统已被破坏！\n需要完成任务才能恢复监控！")
+            
+            sabotage_window.destroy()
+            
+            if self.action_steps > self.max_steps:
+                messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n自动切换至下一位玩家")
+                self.switch_to_next_player()
+            else:
+                self.create_game_frame()
+        
+        # 氧气系统按钮
+        oxygen_button = tk.Button(
+            button_frame,
+            text="💨 氧气系统",
+            font=(self.font_family, 14),
+            bg="#4caf50",
+            fg="#ffffff",
+            padx=30,
+            pady=15,
+            bd=2,
+            relief="flat",
+            command=sabotage_oxygen
+        )
+        oxygen_button.pack(side="left", padx=20)
+        
+        # 监控系统按钮
+        monitor_button = tk.Button(
+            button_frame,
+            text="📡 监控系统",
+            font=(self.font_family, 14),
+            bg="#9c27b0",
+            fg="#ffffff",
+            padx=30,
+            pady=15,
+            bd=2,
+            relief="flat",
+            command=sabotage_monitor
+        )
+        monitor_button.pack(side="left", padx=20)
+        
+        # 取消按钮
+        cancel_button = tk.Button(
+            sabotage_window,
+            text="取消",
+            font=(self.font_family, 12),
+            bg="#666666",
+            fg="#ffffff",
+            padx=20,
+            pady=5,
+            bd=2,
+            relief="flat",
+            command=sabotage_window.destroy
+        )
+        cancel_button.pack(pady=15)
+
+    def handle_place_bomb(self, player):
+        """处理放置炸弹操作"""
+        if self.action_steps > self.max_steps:
+            messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n无法放置炸弹")
+            return
+
         self.action_steps += 1
-        
-        player.role.sabotage("氧气")
-        self.add_log(f"🔧 {player.name}在第{self.global_round}回合破坏了氧气系统！船员仅有{self.oxygen_remaining_rounds}个回合修复时间！")
-        
-        messagebox.showinfo("破坏成功", f"⚠️ 氧气系统已被破坏！\n船员仅有{self.oxygen_remaining_rounds}个回合修复时间，超时则内鬼直接胜利！\n该任务不占用3个常规任务数量")
-        
+        player.role.place_bomb()
+        self.bomb_location = player.current_location
+
+        self.add_log(f"💣 {player.name}在{player.current_location}放置了一颗炸弹！")
+        messagebox.showinfo("放置成功", f"💣 炸弹已放置在{player.current_location}！\n炸弹将在3分钟后爆炸！\n放置冷却：5回合")
+
         if self.action_steps > self.max_steps:
             messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n自动切换至下一位玩家")
             self.switch_to_next_player()
         else:
             self.create_game_frame()
+
+    def handle_defuse_bomb(self):
+        """处理拆弹任务"""
+        if self.action_steps > self.max_steps:
+            messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n无法拆弹")
+            return
+        
+        if not self.bomb_location:
+            messagebox.showinfo("拆弹任务", "⚠️ 当前房间没有炸弹！")
+            return
+        
+        if self.current_player.current_location != self.bomb_location:
+            messagebox.showinfo("拆弹任务", "⚠️ 你不在有炸弹的房间！")
+            return
+        
+        from tasks import BombDefuseTask
+        bomb_task = BombDefuseTask()
+        
+        def on_defuse_complete(completed):
+            if completed:
+                self.bomb_location = None
+                for player in self.game.players:
+                    if isinstance(player.role, Impostor):
+                        player.role.bomb_explode_time = None
+                self.action_steps += 1
+                self.add_log(f"💣 {self.current_player.name}成功拆除了炸弹！")
+                messagebox.showinfo("拆弹成功", "✅ 炸弹已成功拆除！")
+                
+                if self.action_steps > self.max_steps:
+                    messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n自动切换至下一位玩家")
+                    self.switch_to_next_player()
+                else:
+                    self.create_game_frame()
+            else:
+                messagebox.showinfo("拆弹失败", "❌ 拆弹失败！炸弹爆炸！")
+                self.execute_bomb_explosion(self.current_player)
+        
+        bomb_task.run_task_gui(self.root, on_close_callback=on_defuse_complete)
+
+    def handle_repair_monitor(self):
+        """处理修复监控任务"""
+        if self.action_steps > self.max_steps:
+            messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n无法修复监控")
+            return
+        
+        if not getattr(self, 'monitor_sabotaged', False):
+            messagebox.showinfo("修复监控", "⚠️ 监控系统没有被破坏！")
+            return
+        
+        if self.current_player.current_location != "监控室":
+            messagebox.showinfo("修复监控", "⚠️ 你不在监控室！")
+            return
+        
+        from tasks import RepairMonitorTask
+        repair_task = RepairMonitorTask()
+        
+        def on_task_complete():
+            self.monitor_sabotaged = False
+            self.monitor_repaired = True
+            self.action_steps += 1
+            self.add_log(f"🔧 {self.current_player.name}修复了被破坏的监控系统！")
+            messagebox.showinfo("修复成功", "✅ 监控系统已修复！监控功能已恢复！")
+            
+            if self.action_steps > self.max_steps:
+                messagebox.showinfo("行动限制", "⚠️ 您的行动步数已达上限！\n自动切换至下一位玩家")
+                self.switch_to_next_player()
+            else:
+                self.create_game_frame()
+        
+        repair_task.task_completed = False
+        repair_task.is_completed = False
+        
+        result = repair_task.run_task_gui(self.root)
+        
+        if repair_task.task_completed or repair_task.is_completed:
+            on_task_complete()
 
     def handle_report(self, player):
         """处理报告尸体操作"""
@@ -2584,10 +3269,6 @@ class AmongUsGUI:
         # 执行报告逻辑
         result = player.report_dead_body()
         self.discussion_phase(player, victim)
-
-    def next_player_turn(self):
-        """兼容旧代码"""
-        self.switch_to_next_player()
 
     def discussion_phase(self, reporter, victim):  
         """讨论阶段"""

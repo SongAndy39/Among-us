@@ -490,6 +490,20 @@ class MorseCodeUnlockGame:
             self.root.after(50, self._fill_success_progress)
         else:
             self.success_label.pack(pady=20)
+            # 进度条填满后，自动关闭系统
+            self.root.after(1500, self._auto_close)
+
+    def _auto_close(self):
+        """自动关闭窗口"""
+        try:
+            # 取消闪烁定时器
+            if hasattr(self, 'flash_timer'):
+                self.root.after_cancel(self.flash_timer)
+            # 关闭窗口
+            self.root.quit()
+            self.root.destroy()
+        except:
+            pass
 
 # -------------------------- 图片校徽替换（可选） --------------------------
 # 替换logo_label代码：
