@@ -1,0 +1,55 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Find update announcement
+        id: announcement
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          ANNOUNCEMENT_FILE=""
+          
+          # Try to find matching announcement file
+          for file in *.md; do
+            if [[ "$file" == *"${VERSION}"* ]]; then
+              ANNOUNCEMENT_FILE="$file"
+              break
+            fi
+          done
+          
+          echo "FILE=$ANNOUNCEMENT_FILE" >> $GITHUB_OUTPUT
+
+      - name: Read announcement content
+        if: steps.announcement.outputs.FILE != ''
+        id: content
+        run: |
+          CONTENT=$(cat "${{ steps.announcement.outputs.FILE }}" | sed 's/"/\\"/g' | tr '\n' ' ')
+          echo "CONTENT=$CONTENT" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.content.outputs.CONTENT || 'No announcement available for this release.' }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
