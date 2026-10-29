@@ -31,8 +31,6 @@ class Task:
     def run_task_gui(self, main_root=None) -> bool:
         return False
 
-#main_root
-
 
 class WireFixTask(Task):
     """配电室修复电线任务（带图形化交互）"""
@@ -81,31 +79,56 @@ class WireFixTask(Task):
             # 标题
             title_label = tk.Label(
                 root,
-                text="配电室 - 修复电线",
+                text="⚡ 配电室 - 修复电线",
                 font=("SimHei", 20, "bold"),
-                fg="#e94560",
+                fg="#f1c40f",
                 bg="#1a1a2e"
             )
-            title_label.pack(pady=20)
+            title_label.pack(pady=15)
             
-            # 电线操作画布（核心区域）
+            # 电线操作画布（核心区域）- 科技风格
             canvas = tk.Canvas(
                 root,
                 width=700,
                 height=400,
-                bg="#2c3e50",  # 灰色底座背景
+                bg="#0c1929",  # 深蓝色科技背景
                 highlightthickness=2,
-                highlightbackground="#e94560"
+                highlightbackground="#3498db"
             )
             canvas.pack(pady=10)
             
-            # 绘制灰色底座
+            # 添加科技风格网格背景
+            grid_step = 40
+            for x in range(0, 700, grid_step):
+                canvas.create_line(
+                    x, 0, x, 400,
+                    fill="#1a3a5c", width=1
+                )
+            for y in range(0, 400, grid_step):
+                canvas.create_line(
+                    0, y, 700, y,
+                    fill="#1a3a5c", width=1
+                )
+            
+            # 绘制科技风格底座
             canvas.create_rectangle(
                 50, 50, 650, 350,
-                fill="#7f8c8d",  # 灰色底座
-                outline="#bdc3c7",
+                fill="#1a2a3a",  # 深色底座
+                outline="#3498db",  # 蓝色边框
                 width=3
             )
+            
+            # 绘制电路装饰
+            for i in range(3):
+                y_pos = 80 + i * 90
+                canvas.create_rectangle(
+                    50, y_pos, 100, y_pos + 20,
+                    fill="#2c3e50", outline="#3498db", width=2
+                )
+                canvas.create_rectangle(
+                    600, y_pos, 650, y_pos + 20,
+                    fill="#2c3e50", outline="#3498db", width=2
+                )
             
             def generate_wire_positions():
                 """随机生成电线端点位置"""
@@ -179,31 +202,43 @@ class WireFixTask(Task):
             # 生成随机电线位置
             left_wires, right_wires = generate_wire_positions()
             
-            # 绘制电线端点（圆形）
+            # 绘制电线端点（圆形）- 科技风格发光效果
             def draw_wire_endpoints():
                 """绘制电线端点"""
-                # 左边端点
+                # 左边端点（带发光效果）
                 for i, (x, y) in enumerate(left_wires):
+                    # 外发光
                     canvas.create_oval(
-                        x-8, y-8, x+8, y+8,
+                        x-14, y-14, x+14, y+14,
+                        fill="", outline=colors[i], width=2, stipple="gray50"
+                    )
+                    # 主端点
+                    canvas.create_oval(
+                        x-10, y-10, x+10, y+10,
                         fill=colors[i],
                         outline="#ffffff",
                         width=2
                     )
                 
-                # 右边端点
+                # 右边端点（待连接状态）
                 for i, (x, y) in enumerate(right_wires):
+                    # 外发光
                     canvas.create_oval(
-                        x-8, y-8, x+8, y+8,
-                        fill=colors[i],
-                        outline="#ffffff" if not wire_states[i] else "#ffff00",
-                        width=2,
+                        x-14, y-14, x+14, y+14,
+                        fill="", outline=colors[i], width=2, stipple="gray50"
+                    )
+                    # 主端点
+                    canvas.create_oval(
+                        x-10, y-10, x+10, y+10,
+                        fill="#2c3e50",
+                        outline=colors[i] if not wire_states[i] else "#ffff00",
+                        width=3,
                         tags=f"right_end_{i}"
                     )
             
             draw_wire_endpoints()
             
-            # 绘制初始电线（短线条）
+            # 绘制初始电线（短线条）- 科技风格
             nonlocal wire_ids
             wire_ids = []
             for i in range(3):
@@ -211,20 +246,32 @@ class WireFixTask(Task):
                 wire_id = canvas.create_line(
                     x1, y1, x1 + 20, y1,
                     fill=colors[i],
-                    width=5,
+                    width=6,
                     capstyle=tk.ROUND
                 )
                 wire_ids.append(wire_id)
             
-            # 任务状态标签
+            # 任务状态标签（科技风格）
+            status_frame = tk.Frame(root, bg="#1a1a2e")
+            status_frame.pack(pady=10)
+            
             status_label = tk.Label(
-                root,
-                text="任务状态：未完成（需连接所有同色电线）",
-                font=("SimHei", 12),
-                fg="#ffffff",
+                status_frame,
+                text="🔌 连接相同颜色的电线",
+                font=("SimHei", 14, "bold"),
+                fg="#3498db",
                 bg="#1a1a2e"
             )
-            status_label.pack(pady=10)
+            status_label.pack()
+            
+            hint_label = tk.Label(
+                status_frame,
+                text="提示：从左侧端点拖动到对应颜色的右侧端点",
+                font=("SimHei", 11),
+                fg="#95a5a6",
+                bg="#1a1a2e"
+            )
+            hint_label.pack(pady=5)
             
             # 鼠标事件处理
             def on_wire_click(event):
@@ -279,12 +326,16 @@ class WireFixTask(Task):
                     # 更新右边端点样式（高亮）
                     canvas.itemconfig(
                         f"right_end_{i}",
+                        fill=colors[i],
                         outline="#ffff00",
-                        width=3
+                        width=4
                     )
+                    connected = sum(wire_states)
                     status_label.config(
-                        text=f"任务状态：已连接{sum(wire_states)}/3根电线"
+                        text=f"⚡ 已连接 {connected}/3 根电线",
+                        fg="#f1c40f" if connected < 3 else "#2ecc71"
                     )
+                    hint_label.config(text="✅ 连接成功！" if connected == 3 else "继续连接其他电线...")
                     
                     # 检查是否所有电线都连接完成
                     if all(wire_states):
@@ -303,17 +354,28 @@ class WireFixTask(Task):
                 """完成任务"""
                 self.task_completed = True
                 status_label.config(
-                    text="任务状态：已完成！",
-                    fg="#00ff00"
+                    text="⚡ 配电室修复完成！",
+                    fg="#2ecc71"
                 )
+                hint_label.config(text="✅ 所有电线已正确连接！")
+                
+                # 添加庆祝效果
+                canvas.create_text(
+                    350, 200,
+                    text="🎉",
+                    font=("SimHei", 48, "bold"),
+                    fill="#f1c40f"
+                )
+                
                 # 禁用所有交互
                 canvas.unbind("<ButtonPress-1>")
                 canvas.unbind("<B1-Motion>")
                 canvas.unbind("<ButtonRelease-1>")
+                
                 # 弹出完成提示
                 messagebox.showinfo("任务完成", "🎉 配电室电线修复完成！")
-                # 延迟关闭窗口（让用户看到提示）
-                root.after(1000, lambda: (root.quit(), root.destroy()))
+                # 延迟关闭窗口
+                root.after(800, lambda: (root.quit(), root.destroy()))
             
             # 绑定鼠标事件
             canvas.bind("<ButtonPress-1>", on_wire_click)
@@ -393,49 +455,80 @@ class FilterCleanTask(Task):
             # 标题
             title_label = tk.Label(
                 root,
-                text="氧气室 - 清理过滤器",
+                text="🧹 氧气室 - 清理过滤器",
                 font=(font_family, 20, "bold"),
-                fg="#e94560",
+                fg="#e74c3c",
                 bg="#1a1a2e"
             )
-            title_label.pack(pady=20)
+            title_label.pack(pady=15)
             
-            # 过滤器操作画布（核心区域）
+            # 过滤器操作画布（核心区域）- 科技风格
             canvas = tk.Canvas(
                 root,
                 width=700,
                 height=400,
-                bg="#7f8c8d",  # 灰色底板
+                bg="#0c1929",  # 深蓝色科技背景
                 highlightthickness=2,
-                highlightbackground="#e94560"
+                highlightbackground="#e74c3c"
             )
             canvas.pack(pady=10)
             
-            # 绘制黑色圆环（中心红色）
-            # 外层黑色圆环
+            # 添加科技风格网格背景
+            grid_step = 40
+            for x in range(0, 700, grid_step):
+                canvas.create_line(
+                    x, 0, x, 400,
+                    fill="#1a3a5c", width=1
+                )
+            for y in range(0, 400, grid_step):
+                canvas.create_line(
+                    0, y, 700, y,
+                    fill="#1a3a5c", width=1
+                )
+            
+            # 绘制科技风格圆环（发光效果）
+            # 外层深色圆环
+            canvas.create_oval(
+                ring_center[0] - ring_radius - 5, ring_center[1] - ring_radius - 5,
+                ring_center[0] + ring_radius + 5, ring_center[1] + ring_radius + 5,
+                outline="#1a3a5c", width=10, tags="ring_glow"
+            )
+            # 外层圆环
             canvas.create_oval(
                 ring_center[0] - ring_radius, ring_center[1] - ring_radius,
                 ring_center[0] + ring_radius, ring_center[1] + ring_radius,
-                outline="#000000", width=8, tags="ring"
+                outline="#e74c3c", width=8, tags="ring"
             )
-            # 中心红色区域
+            # 中心区域（深色背景）
             canvas.create_oval(
                 ring_center[0] - (ring_radius - 10), ring_center[1] - (ring_radius - 10),
                 ring_center[0] + (ring_radius - 10), ring_center[1] + (ring_radius - 10),
-                fill="#ff0000", outline="", tags="ring_center"
+                fill="#1a2a3a", outline="#c0392b", width=3, tags="ring_center"
             )
             
-            # 任务状态标签
+            # 任务状态标签（科技风格）
+            status_frame = tk.Frame(root, bg="#1a1a2e")
+            status_frame.pack(pady=10)
+            
             status_label = tk.Label(
-                root,
-                text=f"任务状态：未完成（需清理{ball_count}个杂质小球）",
-                font=(font_family, 12),
-                fg="#ffffff",
+                status_frame,
+                text=f"🧹 拖动杂质到中心区域",
+                font=(font_family, 14, "bold"),
+                fg="#e74c3c",
                 bg="#1a1a2e"
             )
-            status_label.pack(pady=10)
+            status_label.pack()
             
-            # 生成随机棕色小球
+            hint_label = tk.Label(
+                status_frame,
+                text=f"提示：需清理 {ball_count} 个杂质小球",
+                font=(font_family, 11),
+                fg="#95a5a6",
+                bg="#1a1a2e"
+            )
+            hint_label.pack(pady=5)
+            
+            # 生成随机棕色小球（科技风格）
             def generate_balls():
                 """生成随机位置、大小的棕色小球"""
                 nonlocal balls
@@ -448,11 +541,18 @@ class FilterCleanTask(Task):
                     distance = random.uniform(0, ring_radius - radius - 5)
                     x = ring_center[0] + distance * math.cos(angle)
                     y = ring_center[1] + distance * math.sin(angle)
-                    # 绘制棕色小球
+                    # 绘制科技风格棕色小球
+                    # 外发光
+                    canvas.create_oval(
+                        x - radius - 3, y - radius - 3,
+                        x + radius + 3, y + radius + 3,
+                        fill="", outline="#8B4513", width=2, stipple="gray50"
+                    )
+                    # 主球体
                     ball_id = canvas.create_oval(
                         x - radius, y - radius,
                         x + radius, y + radius,
-                        fill="#8B4513", outline="#5D2906", width=1,
+                        fill="#8B4513", outline="#d35400", width=2,
                         tags="ball"
                     )
                     balls[ball_id] = (x, y, radius)
@@ -533,20 +633,30 @@ class FilterCleanTask(Task):
             
             def complete_task():
                 """完成任务"""
-                # 移除错误的nonlocal self声明
                 self.task_completed = True
                 status_label.config(
-                    text="任务状态：已完成！",
-                    fg="#00ff00"
+                    text="✅ 过滤器清理完成！",
+                    fg="#2ecc71"
                 )
+                hint_label.config(text="✅ 所有杂质已清除！")
+                
+                # 添加庆祝效果
+                canvas.create_text(
+                    400, 200,
+                    text="🎉",
+                    font=("SimHei", 48, "bold"),
+                    fill="#f1c40f"
+                )
+                
                 # 禁用所有交互
                 canvas.unbind("<ButtonPress-1>")
                 canvas.unbind("<B1-Motion>")
                 canvas.unbind("<ButtonRelease-1>")
+                
                 # 弹出完成提示
                 messagebox.showinfo("任务完成", "🎉 过滤器杂质清理完成！")
-                # 延迟关闭窗口（让用户看到提示）
-                root.after(1000, lambda: (root.quit(), root.destroy()))
+                # 延迟关闭窗口
+                root.after(800, lambda: (root.quit(), root.destroy()))
             
             # 绑定鼠标事件
             canvas.bind("<ButtonPress-1>", on_ball_click)
@@ -629,46 +739,82 @@ class BodyScanTask(Task):
             )
             title_label.pack(pady=20)
             
-            # 主画布（蓝色底板）
+            # 主画布（科技风格深蓝色底板）
             main_canvas = tk.Canvas(
                 root,
                 width=700,
                 height=400,
-                bg="#0066cc",  # 蓝色底板
+                bg="#0c1929",  # 深蓝色科技底板
                 highlightthickness=2,
-                highlightbackground="#e94560"
+                highlightbackground="#3498db"
             )
             main_canvas.pack(pady=10)
             
-            # 左侧按钮区域（占1/2宽度）
-            btn_x, btn_y = 175, 200
+            # 添加科技风格网格背景
+            grid_step = 40
+            for x in range(0, 700, grid_step):
+                main_canvas.create_line(
+                    x, 0, x, 400,
+                    fill="#1a3a5c", width=1
+                )
+            for y in range(0, 400, grid_step):
+                main_canvas.create_line(
+                    0, y, 700, y,
+                    fill="#1a3a5c", width=1
+                )
+            
+            # 左侧按钮区域
+            btn_x, btn_y = 150, 200
+            
+            # 科技风格扫描按钮
+            scan_btn_frame = tk.Frame(root, bg="#0c1929")
             scan_btn = tk.Button(
-                root,
-                text="开始扫描",
+                scan_btn_frame,
+                text="🔬 开始扫描",
                 font=(font_family, 14, "bold"),
-                bg="#4caf50",
+                bg="#2ecc71",
                 fg="#ffffff",
-                width=10,
+                activebackground="#27ae60",
+                activeforeground="#ffffff",
+                width=12,
                 height=2,
+                relief="flat",
+                borderwidth=3,
                 command=lambda: self.start_scan(main_canvas, status_label)
             )
             # 将按钮放置在画布左侧
             btn_window_id = main_canvas.create_window(
-                btn_x, btn_y, window=scan_btn, tags="scan_btn"
+                btn_x, btn_y, window=scan_btn_frame, tags="scan_btn"
             )
-            # 保存按钮引用（防止被GC回收）
+            scan_btn.pack()
+            # 保存按钮引用
             main_canvas.scan_btn = scan_btn
+            main_canvas.scan_btn_frame = scan_btn_frame
             
-            # 右侧灰色底板（占1/2宽度，蓝色底板的1/2）
-            gray_x1, gray_y1 = 350, 50
-            gray_x2, gray_y2 = 650, 350
+            # 右侧扫描区域（科技风格边框）
+            gray_x1, gray_y1 = 330, 40
+            gray_x2, gray_y2 = 670, 360
+            
+            # 扫描区域外框（发光效果）
+            main_canvas.create_rectangle(
+                gray_x1 - 3, gray_y1 - 3, gray_x2 + 3, gray_y2 + 3,
+                outline="#3498db", width=2, tags="scan_border_outer"
+            )
+            # 扫描区域内框
             main_canvas.create_rectangle(
                 gray_x1, gray_y1, gray_x2, gray_y2,
-                fill="#7f8c8d", outline="#000000", width=2, tags="gray_board"
+                fill="#1a2a3a", outline="#2ecc71", width=3, tags="scan_border"
+            )
+            
+            # 添加扫描区域标题
+            main_canvas.create_text(
+                (gray_x1 + gray_x2) / 2, gray_y1 - 15,
+                text="人体扫描区域",
+                font=(font_family, 12, "bold"),
+                fill="#3498db"
             )
             
             # 加载人体图片并自适应缩放
-                        # 加载人体图片并自适应缩放
             try:
                 import os
                 # 构建图片的绝对路径
@@ -708,48 +854,94 @@ class BodyScanTask(Task):
                 if scale_factor > 1:
                     tk_img = tk_img.subsample(int(scale_factor), int(scale_factor))
                 
-                # 计算图片居中位置
-                img_x = gray_x1 + (board_width - new_width) / 2 + 10
-                img_y = gray_y1 + (board_height - new_height) / 2 + 10
+                # 计算图片居中位置（使用CENTER锚点）
+                img_x = (gray_x1 + gray_x2) / 2
+                img_y = (gray_y1 + gray_y2) / 2
                 
                 # 在灰色底板上绘制图片
                 main_canvas.create_image(
                     img_x, img_y,
                     image=tk_img,
-                    anchor=tk.NW,
+                    anchor=tk.CENTER,
                     tags="human_image"
                 )
-                # 保存图片引用（防止被GC回收）
+                # 保存图片引用
                 main_canvas.human_img = tk_img
                 
             except Exception as e:
-                # 加载失败时绘制默认人体轮廓（兜底）
+                # 加载失败时绘制科技风格人体轮廓
                 print(f"图片加载失败：{e}")
-                body_points = [
-                    (500, 80), (480, 100), (520, 100), (500, 120),
-                    (500, 180), (470, 250), (530, 250), (500, 180),
-                    (480, 140), (460, 120), (480, 140), (520, 140),
-                    (540, 120), (520, 140), (480, 250), (470, 320),
-                    (480, 250), (520, 250), (530, 320)
-                ]
-                main_canvas.create_polygon(
-                    body_points,
-                    fill="", outline="#000000", width=3, tags="human_body"
+                # 绘制科技风格人体轮廓
+                center_x = (gray_x1 + gray_x2) / 2
+                # 头部
+                main_canvas.create_oval(
+                    center_x - 25, gray_y1 + 40,
+                    center_x + 25, gray_y1 + 90,
+                    fill="#2ecc71", outline="#27ae60", width=3,
+                    tags="human_body"
                 )
-            # 任务状态标签
+                # 身体
+                main_canvas.create_rectangle(
+                    center_x - 30, gray_y1 + 95,
+                    center_x + 30, gray_y1 + 200,
+                    fill="#3498db", outline="#2980b9", width=3,
+                    tags="human_body"
+                )
+                # 左臂
+                main_canvas.create_rectangle(
+                    center_x - 50, gray_y1 + 100,
+                    center_x - 30, gray_y1 + 180,
+                    fill="#3498db", outline="#2980b9", width=3,
+                    tags="human_body"
+                )
+                # 右臂
+                main_canvas.create_rectangle(
+                    center_x + 30, gray_y1 + 100,
+                    center_x + 50, gray_y1 + 180,
+                    fill="#3498db", outline="#2980b9", width=3,
+                    tags="human_body"
+                )
+                # 左腿
+                main_canvas.create_rectangle(
+                    center_x - 25, gray_y1 + 205,
+                    center_x - 8, gray_y1 + 320,
+                    fill="#9b59b6", outline="#8e44ad", width=3,
+                    tags="human_body"
+                )
+                # 右腿
+                main_canvas.create_rectangle(
+                    center_x + 8, gray_y1 + 205,
+                    center_x + 25, gray_y1 + 320,
+                    fill="#9b59b6", outline="#8e44ad", width=3,
+                    tags="human_body"
+                )
+            
+            # 任务状态标签（科技风格）
+            status_frame = tk.Frame(root, bg="#1a1a2e")
+            status_frame.pack(pady=15)
+            
             status_label = tk.Label(
-                root,
-                text="任务状态：未完成（点击开始扫描按钮）",
-                font=(font_family, 12),
-                fg="#ffffff",
+                status_frame,
+                text="📡 点击开始扫描按钮",
+                font=(font_family, 14, "bold"),
+                fg="#3498db",
                 bg="#1a1a2e"
             )
-            status_label.pack(pady=10)
+            status_label.pack()
             
-            return main_canvas, status_label
+            hint_label = tk.Label(
+                status_frame,
+                text="提示：扫描线会从头到脚扫描人体",
+                font=(font_family, 11),
+                fg="#95a5a6",
+                bg="#1a1a2e"
+            )
+            hint_label.pack(pady=5)
+            
+            return main_canvas, status_label, hint_label
         
         # 创建UI并启动
-        main_canvas, status_label = create_ui()
+        main_canvas, status_label, hint_label = create_ui()
         
         # 启动主循环（增加异常处理）
         try:
@@ -772,97 +964,125 @@ class BodyScanTask(Task):
             root.destroy()
     
     def start_scan(self, canvas, status_label):
-        """开始扫描动画（改为实例方法，避免nonlocal）"""
+        """开始扫描动画"""
         if self.scan_running:
             return
         
         self.scan_running = True
         self.scan_direction = 1  # 重置扫描方向
-        status_label.config(text="任务状态：扫描中...")
-        
-        # 扫描线初始位置（灰色底板顶部）
-        scan_y = 50
-        # 创建扫描线（蓝色）
-        self.scan_line_id = canvas.create_line(
-            350, scan_y, 650, scan_y,
-            fill="#00ccff", width=3, tags="scan_line"
-        )
-        # 启动扫描动画
-        self.animate_scan(canvas, scan_y, status_label)
-    
-    def animate_scan(self, canvas, y, status_label):
-        """扫描动画逻辑：向下→向上（改为实例方法）"""
-        if not self.scan_running:
-            return
-        
-        # 更新扫描线位置
-        if self.scan_line_id:
-            canvas.coords(self.scan_line_id, 350, y, 650, y)
-        
-        # 扫描到底部（灰色底板底部），切换方向向上
-        if y >= 350:
-            self.scan_direction = -1
-        # 扫描到顶部且已完成一次往返，结束扫描
-        elif y <= 50 and self.scan_direction == -1:
-            self.complete_scan(canvas, status_label)
-            return
-        
-        # 继续动画（控制扫描速度）
-        new_y = y + (3 * self.scan_direction)
-        canvas.after(10, self.animate_scan, canvas, new_y, status_label)
-    
-    def complete_scan(self, canvas, status_label):
-        """完成扫描（改为实例方法）"""
-        self.scan_running = False
-        
-        # 隐藏扫描线
-        if self.scan_line_id:
-            canvas.delete(self.scan_line_id)
-            self.scan_line_id = None
-        
-        self.task_completed = True
-        status_label.config(text="任务状态：已完成！", fg="#00ff00")
+        status_label.config(text="🔍 扫描中...", fg="#f1c40f")
         
         # 禁用扫描按钮
         try:
             btn = canvas.scan_btn
             if btn:
                 btn.config(state=tk.DISABLED)
-                btn.config(bg="#cccccc")  # 视觉上禁用
+                btn.config(bg="#95a5a6")
         except:
             pass
+        
+        # 扫描线初始位置（更新为新的坐标）
+        scan_y = 40
+        # 创建科技风格扫描线（带光晕效果）
+        self.scan_line_id = canvas.create_rectangle(
+            330, scan_y - 2, 670, scan_y + 2,
+            fill="#00ffcc", outline="#00ffcc", tags="scan_line"
+        )
+        # 添加发光效果
+        self.scan_glow_id = canvas.create_rectangle(
+            330, scan_y - 8, 670, scan_y + 8,
+            fill="", outline="#00ffcc", tags="scan_glow", stipple="gray50"
+        )
+        # 启动扫描动画
+        self.animate_scan(canvas, scan_y, status_label)
+    
+    def animate_scan(self, canvas, y, status_label):
+        """扫描动画逻辑：向下→向上（科技风格）"""
+        if not self.scan_running:
+            return
+        
+        # 更新扫描线和光晕位置
+        if self.scan_line_id:
+            canvas.coords(self.scan_line_id, 330, y - 2, 670, y + 2)
+        if self.scan_glow_id:
+            canvas.coords(self.scan_glow_id, 330, y - 8, 670, y + 8)
+        
+        # 扫描到底部，切换方向向上
+        if y >= 360:
+            self.scan_direction = -1
+        # 扫描到顶部且已完成一次往返，结束扫描
+        elif y <= 40 and self.scan_direction == -1:
+            self.complete_scan(canvas, status_label)
+            return
+        
+        # 继续动画（控制扫描速度）
+        new_y = y + (2.5 * self.scan_direction)
+        canvas.after(8, self.animate_scan, canvas, new_y, status_label)
+    
+    def complete_scan(self, canvas, status_label):
+        """完成扫描（科技风格庆祝）"""
+        self.scan_running = False
+        
+        # 隐藏扫描线和光晕
+        if self.scan_line_id:
+            canvas.delete(self.scan_line_id)
+            self.scan_line_id = None
+        if self.scan_glow_id:
+            canvas.delete(self.scan_glow_id)
+            self.scan_glow_id = None
+        
+        self.task_completed = True
+        status_label.config(text="✅ 扫描完成！", fg="#2ecc71")
+        
+        # 添加庆祝效果
+        canvas.create_text(
+            500, 200,
+            text="🎉",
+            font=("SimHei", 48, "bold"),
+            fill="#f1c40f"
+        )
         
         # 弹出完成提示
         messagebox.showinfo("任务完成", "🎉 身体扫描完成！")
         
-        # 延迟关闭窗口（让用户看到提示）
-        canvas.after(1000, lambda: self._cleanup_window(self.task_window))
+        # 延迟关闭窗口
+        canvas.after(800, lambda: self._cleanup_window(self.task_window))
 class DownloadDataTask(Task):
-    """通讯室下载数据任务（带图形化交互）"""
+    """通讯室下载数据任务（带图形化交互）- 两阶段流程"""
 
     def __init__(self):
-        super().__init__("下载数据", "通讯室", 1)
-        self.task_completed = False  # 记录GUI任务是否完成
-        self.task_window = None      # 任务窗口对象
-        # 核心参数改为实例变量，避免nonlocal问题
-        self.download_progress = 0   # 下载进度（0-100）
-        self.usb_dragging = False    # U盘是否正在拖动
-        self.usb_id = None           # U盘图形ID
-        self.usb_plugged = False     # U盘是否插入接口
-        self.progress_label = None   # 进度显示标签
-        self.download_after_id = None # 进度更新定时器ID
-        self.usb_aligned = False     # U盘是否对准接口
+        super().__init__("下载数据", "通讯室", 2)  # 难度改为2星
+        self.task_completed = False
+        self.task_window = None
+        # 阶段控制
+        self.phase = 1  # 1=下载阶段，2=上传阶段
+        self.download_completed = False
+        self.upload_completed = False
+        # 下载相关
+        self.download_progress = 0
+        self.upload_progress = 0
+        self.usb_dragging = False
+        self.usb_plugged = False
+        self.progress_label = None
+        self.download_after_id = None
+        self.upload_after_id = None
+        self.usb_aligned = False
+        # U盘位置记录
+        self.usb_current_x = 100
+        self.usb_current_y = 320
 
     def run_task_gui(self, main_root=None) -> bool:
-        """
-        运行下载数据的图形化任务界面
-        :param main_root: 主窗口对象（可选）
-        :return: 任务是否完成
-        """
+        """运行下载数据的图形化任务界面"""
         # 重置状态
-        self.usb_aligned = False
-        self.usb_plugged = False
+        self.phase = 1
+        self.download_completed = False
+        self.upload_completed = False
         self.download_progress = 0
+        self.upload_progress = 0
+        self.usb_plugged = False
+        self.usb_aligned = False
+        self.usb_current_x = 100
+        self.usb_current_y = 320
 
         # 确保只创建一个任务窗口
         if self.task_window and (
@@ -872,437 +1092,376 @@ class DownloadDataTask(Task):
             self.task_window.lift()
             return False
 
-        # 创建窗口（优先使用Toplevel依附主窗口）
+        # 创建窗口
         if main_root and isinstance(main_root, tk.Tk):
             self.task_window = tk.Toplevel(main_root)
         else:
-            self.task_window = tk.Tk()  # 无主窗口时创建独立窗口
+            self.task_window = tk.Tk()
 
         root = self.task_window
         root.title("通讯室 - 下载数据")
         root.geometry("800x600")
         root.configure(bg="#1a1a2e")
         root.resizable(False, False)
-        root.wm_attributes("-topmost", True)  # 窗口置顶
-
-        # 窗口关闭协议：确保正确清理资源
+        root.wm_attributes("-topmost", True)
         root.protocol("WM_DELETE_WINDOW", lambda: self._cleanup_window(root))
 
-        # 中文字体（增加兼容性）
+        # 中文字体
         font_family = "SimHei"
         try:
             tk.font.Font(family=font_family, size=12)
         except:
-            font_family = "Arial"  # 兜底字体
+            font_family = "Arial"
 
-        # 创建UI
-        def create_ui():
-            """创建任务界面"""
-            # 标题
-            title_label = tk.Label(
-                root,
-                text="通讯室 - 下载数据",
-                font=(font_family, 20, "bold"),
-                fg="#e94560",
-                bg="#1a1a2e"
-            )
-            title_label.pack(pady=20)
+        # ========== 创建UI ==========
+        # 标题
+        title_label = tk.Label(
+            root, text="通讯室 - 数据传输", font=(font_family, 20, "bold"),
+            fg="#e94560", bg="#1a1a2e"
+        )
+        title_label.pack(pady=15)
 
-            # 主画布（深蓝色科技底板）
-            main_canvas = tk.Canvas(
-                root,
-                width=700,
-                height=400,
-                bg="#0a1628",  # 深蓝色科技底板
-                highlightthickness=2,
-                highlightbackground="#e94560",
-                cursor="hand2"  # 鼠标悬停显示手型
-            )
-            main_canvas.pack(pady=10)
+        # 主画布
+        main_canvas = tk.Canvas(
+            root, width=700, height=380, bg="#0a1628",
+            highlightthickness=2, highlightbackground="#e94560", cursor="hand2"
+        )
+        main_canvas.pack(pady=10)
 
-            # ========== 绘制电脑主机（右下区域）==========
-            # 主机外壳
-            main_canvas.create_rectangle(
-                480, 80, 650, 350,
-                fill="#2d2d2d", outline="#444444", width=3
-            )
-            # 主机前面板
-            main_canvas.create_rectangle(
-                480, 80, 510, 350,
-                fill="#3d3d3d", outline="#555555", width=2
-            )
-            # 主机电源按钮
-            main_canvas.create_oval(
-                490, 300, 505, 315,
-                fill="#27ae60", outline="#1e8449", width=2
-            )
-            # 主机USB接口（竖着的两个插槽）
-            main_canvas.create_rectangle(
-                492, 240, 500, 260,
-                fill="#1a1a1a", outline="#000000", width=1
-            )
-            main_canvas.create_rectangle(
-                492, 265, 500, 285,
-                fill="#1a1a1a", outline="#000000", width=1
-            )
+        # ========== 绘制电脑主机（右侧）==========
+        main_canvas.create_rectangle(550, 60, 680, 320, fill="#2d2d2d", outline="#444444", width=3)
+        main_canvas.create_rectangle(550, 60, 580, 320, fill="#3d3d3d", outline="#555555", width=2)
+        main_canvas.create_oval(560, 280, 575, 295, fill="#27ae60", outline="#1e8449", width=2)
+        # 主机USB接口
+        main_canvas.create_rectangle(562, 200, 572, 220, fill="#1a1a1a", outline="#000000", width=1)
+        main_canvas.create_rectangle(562, 225, 572, 245, fill="#1a1a1a", outline="#000000", width=1)
+        # 主机接口标签
+        main_canvas.create_text(567, 260, text="USB", font=(font_family, 8), fill="#888888")
 
-            # ========== 显示屏 ==========
-            screen_x1, screen_y1 = 80, 50
-            screen_x2, screen_y2 = 420, 280
-            # 显示屏外壳
-            main_canvas.create_rectangle(
-                screen_x1, screen_y1, screen_x2, screen_y2,
-                fill="#1a1a1a", outline="#333333", width=4
-            )
-            # 显示屏内屏
-            main_canvas.create_rectangle(
-                screen_x1 + 10, screen_y1 + 10, screen_x2 - 10, screen_y2 - 40,
-                fill="#0f3057", outline="#000000", width=2
-            )
-            # 显示屏标题
-            main_canvas.create_text(
-                (screen_x1 + screen_x2)/2, screen_y1 + 35,
-                text="数据下载终端", font=(font_family, 14, "bold"), fill="#00d4ff"
-            )
-            # 进度显示标签
-            self.progress_label = tk.Label(
-                root,
-                text="等待插入设备...",
-                font=(font_family, 28, "bold"),
-                fg="#ff6b6b",
-                bg="#0f3057"
-            )
-            self.progress_label.place(
-                x=(screen_x1 + screen_x2)/2 - 100,
-                y=(screen_y1 + screen_y2)/2 - 50
-            )
-            # 显示屏底座
-            main_canvas.create_rectangle(
-                (screen_x1 + screen_x2)/2 - 40, screen_y2 - 30, (screen_x1 + screen_x2)/2 + 40, screen_y2,
-                fill="#2d2d2d", outline="#444444", width=2
-            )
+        # ========== 绘制显示屏（左侧）==========
+        screen_x1, screen_y1 = 80, 40
+        screen_x2, screen_y2 = 480, 280
+        # 显示屏外壳
+        main_canvas.create_rectangle(screen_x1, screen_y1, screen_x2, screen_y2, fill="#1a1a1a", outline="#333333", width=4)
+        # 显示屏内屏
+        main_canvas.create_rectangle(screen_x1 + 10, screen_y1 + 10, screen_x2 - 10, screen_y2 - 40, fill="#0f3057", outline="#000000", width=2)
+        # 显示屏标题
+        main_canvas.create_text((screen_x1 + screen_x2)/2, screen_y1 + 30, text="数据传输终端", font=(font_family, 14, "bold"), fill="#00d4ff")
+        # 显示屏底座
+        main_canvas.create_rectangle(250, screen_y2, 310, screen_y2 + 25, fill="#2d2d2d", outline="#444444", width=2)
+        
+        # ========== 显示屏下方的USB接口（阶段2目标）==========
+        screen_port_x1, screen_port_y1 = 260, screen_y2 + 30
+        screen_port_x2, screen_port_y2 = 300, screen_port_y1 + 40
+        # 接口外框
+        screen_port_id = main_canvas.create_rectangle(
+            screen_port_x1, screen_port_y1, screen_port_x2, screen_port_y2,
+            fill="#1a1a1a", outline="#444444", width=2, tags="screen_port"
+        )
+        # 接口内部
+        main_canvas.create_rectangle(screen_port_x1 + 3, screen_port_y1 + 5, screen_port_x2 - 3, screen_port_y1 + 18, fill="#333333", outline="#222222", width=1, tags="screen_port")
+        main_canvas.create_rectangle(screen_port_x1 + 3, screen_port_y1 + 22, screen_port_x2 - 3, screen_port_y1 + 35, fill="#333333", outline="#222222", width=1, tags="screen_port")
+        # 接口标签
+        screen_port_label = main_canvas.create_text(
+            (screen_port_x1 + screen_port_x2)/2, screen_port_y2 + 15,
+            text="输入接口", font=(font_family, 9), fill="#888888", tags="screen_port_label"
+        )
+        # 对准提示框（阶段2显示）
+        screen_port_hint = main_canvas.create_rectangle(
+            screen_port_x1 - 25, screen_port_y1 - 15, screen_port_x2 + 25, screen_port_y2 + 15,
+            outline="#ff6b6b", width=2, dash=(5, 5), tags="screen_port_hint"
+        )
+        main_canvas.itemconfig(screen_port_hint, state='hidden')  # 初始隐藏
 
-            # ========== 绘制真实的U盘 ==========
-            usb_init_x, usb_init_y = 100, 320  # U盘初始位置
+        # ========== 进度显示标签 ==========
+        self.progress_label = tk.Label(
+            root, text="等待插入设备...", font=(font_family, 24, "bold"),
+            fg="#ff6b6b", bg="#0f3057"
+        )
+        self.progress_label.place(x=200, y=130)
 
-            # U盘外壳（主体）
-            main_canvas.create_rectangle(
-                usb_init_x, usb_init_y,
-                usb_init_x + 120, usb_init_y + 50,
-                fill="#c0c0c0", outline="#808080", width=2,
-                tags="usb"
-            )
-            # U盘尾部挂绳孔
-            main_canvas.create_oval(
-                usb_init_x + 5, usb_init_y + 18,
-                usb_init_x + 15, usb_init_y + 32,
-                fill="#1a1a1a", outline="#000000", width=1,
-                tags="usb"
-            )
-            # U盘外壳上的文字
-            main_canvas.create_text(
-                usb_init_x + 75, usb_init_y + 25,
-                text="USB", font=(font_family, 10, "bold"), fill="#333333",
-                tags="usb"
-            )
-            # U盘LED指示灯（绿色小圆点）
-            led_id = main_canvas.create_oval(
-                usb_init_x + 95, usb_init_y + 10,
-                usb_init_x + 100, usb_init_y + 15,
-                fill="#333333", outline="#000000", width=1,
-                tags="usb"
-            )
-            # U盘USB金属接口（突出部分）- 这是我们要追踪的部分
-            usb_metal_id = main_canvas.create_rectangle(
-                usb_init_x + 120, usb_init_y + 12,
-                usb_init_x + 135, usb_init_y + 38,
-                fill="#d4af37", outline="#b8860b", width=2,  # 金色金属
-                tags="usb"
-            )
-            # USB接口上的两个小孔（Type-A接口特征）
-            main_canvas.create_rectangle(
-                usb_init_x + 125, usb_init_y + 18,
-                usb_init_x + 130, usb_init_y + 22,
-                fill="#1a1a1a",
-                tags="usb"
-            )
-            main_canvas.create_rectangle(
-                usb_init_x + 125, usb_init_y + 28,
-                usb_init_x + 130, usb_init_y + 32,
-                fill="#1a1a1a",
-                tags="usb"
-            )
+        # ========== 绘制U盘 ==========
+        usb_init_x, usb_init_y = 100, 320
 
-            # U盘上的缺口标记（对准提示）
-            gap_x = usb_init_x + 120
-            main_canvas.create_polygon(
-                gap_x, usb_init_y + 20,
-                gap_x, usb_init_y + 30,
-                gap_x + 5, usb_init_y + 25,
-                fill="#ff0000",
-                tags="usb"
-            )
+        # U盘外壳
+        main_canvas.create_rectangle(
+            usb_init_x, usb_init_y, usb_init_x + 100, usb_init_y + 40,
+            fill="#c0c0c0", outline="#808080", width=2, tags="usb"
+        )
+        # U盘挂绳孔
+        main_canvas.create_oval(
+            usb_init_x + 5, usb_init_y + 12, usb_init_x + 15, usb_init_y + 28,
+            fill="#1a1a1a", outline="#000000", width=1, tags="usb"
+        )
+        # U盘文字
+        main_canvas.create_text(
+            usb_init_x + 55, usb_init_y + 20, text="USB",
+            font=(font_family, 10, "bold"), fill="#333333", tags="usb"
+        )
+        # U盘LED指示灯
+        led_id = main_canvas.create_oval(
+            usb_init_x + 80, usb_init_y + 8, usb_init_x + 88, usb_init_y + 16,
+            fill="#333333", outline="#000000", width=1, tags="usb"
+        )
+        # U盘金属接口
+        usb_metal_id = main_canvas.create_rectangle(
+            usb_init_x + 100, usb_init_y + 8, usb_init_x + 115, usb_init_y + 32,
+            fill="#d4af37", outline="#b8860b", width=2, tags="usb"
+        )
+        # 金属接口小孔
+        main_canvas.create_rectangle(usb_init_x + 103, usb_init_y + 12, usb_init_x + 108, usb_init_y + 17, fill="#1a1a1a", tags="usb")
+        main_canvas.create_rectangle(usb_init_x + 103, usb_init_y + 23, usb_init_x + 108, usb_init_y + 28, fill="#1a1a1a", tags="usb")
 
-            # 保存U盘ID和初始位置
-            self.usb_id = led_id
-            main_canvas.usb_init_x = usb_init_x
-            main_canvas.usb_init_y = usb_init_y
-            main_canvas.usb_width = 135  # 包含金属接口
-            main_canvas.usb_height = 50
-            main_canvas.usb_led_id = led_id
-            main_canvas.usb_metal_id = usb_metal_id  # 保存金属头ID
+        # 保存U盘信息
+        main_canvas.usb_init_x = usb_init_x
+        main_canvas.usb_init_y = usb_init_y
+        main_canvas.usb_led_id = led_id
+        main_canvas.usb_metal_id = usb_metal_id
+        main_canvas.screen_port_x1 = screen_port_x1
+        main_canvas.screen_port_y1 = screen_port_y1
+        main_canvas.screen_port_x2 = screen_port_x2
+        main_canvas.screen_port_y2 = screen_port_y2
 
-            # ========== 电脑主机上的USB接口（目标位置）==========
-            port_x1, port_y1 = 485, 180
-            port_x2, port_y2 = 505, 230
-            # 保存接口的目标中心点（金属头要对准这里）
-            main_canvas.port_center_x = 490
-            main_canvas.port_center_y = 205
+        # ========== 主机USB接口（阶段1目标）==========
+        host_port_x1, host_port_y1 = 555, 130
+        host_port_x2, host_port_y2 = 575, 180
+        main_canvas.create_rectangle(host_port_x1, host_port_y1, host_port_x2, host_port_y2, fill="#1a1a1a", outline="#444444", width=2, tags="host_port")
+        main_canvas.create_rectangle(host_port_x1 + 3, host_port_y1 + 5, host_port_x2 - 3, host_port_y1 + 20, fill="#333333", outline="#222222", width=1, tags="host_port")
+        main_canvas.create_rectangle(host_port_x1 + 3, host_port_y1 + 25, host_port_x2 - 3, host_port_y1 + 40, fill="#333333", outline="#222222", width=1, tags="host_port")
+        # 主机接口提示
+        host_port_hint = main_canvas.create_rectangle(
+            host_port_x1 - 20, host_port_y1 - 15, host_port_x2 + 20, host_port_y2 + 15,
+            outline="#ff6b6b", width=2, dash=(5, 5), tags="host_port_hint"
+        )
+        main_canvas.create_text((host_port_x1 + host_port_x2)/2, host_port_y2 + 25, text="下载接口", font=(font_family, 9), fill="#ff6b6b", tags="host_port_label")
 
-            # 接口外框
-            main_canvas.create_rectangle(
-                port_x1, port_y1, port_x2, port_y2,
-                fill="#1a1a1a", outline="#444444", width=2,
-                tags="port"
-            )
-            # 接口内部插槽
-            main_canvas.create_rectangle(
-                port_x1 + 3, port_y1 + 5,
-                port_x2 - 3, port_y1 + 20,
-                fill="#333333", outline="#222222", width=1,
-                tags="port"
-            )
-            main_canvas.create_rectangle(
-                port_x1 + 3, port_y1 + 25,
-                port_x2 - 3, port_y1 + 40,
-                fill="#333333", outline="#222222", width=1,
-                tags="port"
-            )
-            # 接口标签
-            main_canvas.create_text(
-                (port_x1 + port_x2)/2, port_y2 + 15,
-                text="USB 3.0", font=(font_family, 9), fill="#888888"
-            )
+        # 保存主机接口信息
+        main_canvas.host_port_center_x = (host_port_x1 + host_port_x2) / 2
+        main_canvas.host_port_center_y = (host_port_y1 + host_port_y2) / 2
+        main_canvas.screen_port_center_x = (screen_port_x1 + screen_port_x2) / 2
+        main_canvas.screen_port_center_y = (screen_port_y1 + screen_port_y2) / 2
 
-            # 对准标记（红色虚线提示区域）
-            main_canvas.create_rectangle(
-                port_x1 - 30, port_y1 - 20,
-                port_x2 + 30, port_y2 + 20,
-                outline="#ff6b6b", width=2, dash=(5, 5),
-                tags="port_hint"
-            )
-            # 对准提示文字
-            main_canvas.create_text(
-                (port_x1 + port_x2)/2, port_y2 + 35,
-                text="将U盘插入此处", font=(font_family, 10), fill="#ff6b6b"
-            )
+        # ========== 状态标签 ==========
+        status_label = tk.Label(
+            root, text="阶段1/2：将U盘插入右侧主机的下载接口",
+            font=(font_family, 12), fg="#ffffff", bg="#1a1a2e"
+        )
+        status_label.pack(pady=10)
 
-            # 保存接口位置信息
-            main_canvas.port_x1 = port_x1
-            main_canvas.port_y1 = port_y1
-            main_canvas.port_x2 = port_x2
-            main_canvas.port_y2 = port_y2
+        # ========== 阶段指示器 ==========
+        phase_frame = tk.Frame(root, bg="#1a1a2e")
+        phase_frame.pack(pady=5)
+        
+        phase1_label = tk.Label(phase_frame, text="① 下载资料", font=(font_family, 11, "bold"), fg="#00d4ff", bg="#1a1a2e")
+        phase1_label.pack(side="left", padx=20)
+        
+        phase2_label = tk.Label(phase_frame, text="② 输入资料", font=(font_family, 11), fg="#666666", bg="#1a1a2e")
+        phase2_label.pack(side="left", padx=20)
 
-            # 任务状态标签
-            status_label = tk.Label(
-                root,
-                text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中",
-                font=(font_family, 12),
-                fg="#ffffff",
-                bg="#1a1a2e"
-            )
-            status_label.pack(pady=10)
+        # 保存UI引用
+        main_canvas.status_label = status_label
+        main_canvas.phase1_label = phase1_label
+        main_canvas.phase2_label = phase2_label
+        main_canvas.host_port_hint = host_port_hint
+        main_canvas.screen_port_hint = screen_port_hint
 
-            return main_canvas, status_label
-
-        # U盘拖动事件处理
+        # ========== U盘拖动事件 ==========
         def on_usb_click(event):
-            """点击U盘开始拖动"""
-            if self.usb_plugged or self.download_progress >= 100:
+            if self.download_progress >= 100 and self.upload_progress >= 100:
                 return
-            # 检查是否点击到U盘（通过tags判断）
             items = event.widget.find_overlapping(event.x, event.y, event.x, event.y)
             for item in items:
                 if "usb" in event.widget.gettags(item):
                     self.usb_dragging = True
-                    # 记录鼠标初始位置
                     event.widget.start_x = event.x
                     event.widget.start_y = event.y
-                    # 提升U盘层级
                     event.widget.tag_raise("usb")
                     break
 
         def on_usb_drag(event):
-            """拖动U盘"""
-            if not self.usb_dragging or self.usb_plugged or self.download_progress >= 100:
+            if not self.usb_dragging:
                 return
             canvas = event.widget
-            # 计算移动偏移量
             dx = event.x - canvas.start_x
             dy = event.y - canvas.start_y
-            # 移动整个U盘（所有usb标签的图形）
             for item in canvas.find_withtag("usb"):
                 canvas.move(item, dx, dy)
-            # 更新鼠标起始位置
             canvas.start_x = event.x
             canvas.start_y = event.y
 
-            # 获取金属头当前位置（中心点）
+            # 获取金属头位置
             metal_coords = canvas.coords(canvas.usb_metal_id)
             metal_center_x = (metal_coords[0] + metal_coords[2]) / 2
             metal_center_y = (metal_coords[1] + metal_coords[3]) / 2
 
-            # 检测金属头是否靠近插口（30像素范围内）
-            distance = ((metal_center_x - canvas.port_center_x) ** 2 + 
-                       (metal_center_y - canvas.port_center_y) ** 2) ** 0.5
-            
-            if distance < 30 and not self.usb_plugged:
-                # 自动吸附！
-                self.usb_dragging = False  # 停止拖动
-                self.usb_plugged = True
-                
-                # 计算吸附的偏移量
-                target_metal_x = canvas.port_center_x - 7.5  # 金属头宽度的一半
-                target_metal_y = canvas.port_center_y - 13
-                dx_adjust = target_metal_x - metal_coords[0]
-                dy_adjust = target_metal_y - metal_coords[1]
-                
-                # 移动整个U盘
-                for item in canvas.find_withtag("usb"):
-                    canvas.move(item, dx_adjust, dy_adjust)
-                
-                # LED变绿表示已连接
-                canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
-                status_label.config(text="🔄 设备已连接，正在传输数据...", fg="#00d4ff")
-                
-                # 开始下载进度
-                self.start_download(canvas, status_label)
-                return
+            # 阶段1：检测主机接口
+            if self.phase == 1 and not self.download_completed:
+                distance = ((metal_center_x - canvas.host_port_center_x) ** 2 + (metal_center_y - canvas.host_port_center_y) ** 2) ** 0.5
+                if distance < 35:
+                    self.usb_dragging = False
+                    self.usb_plugged = True
+                    # 吸附到主机接口
+                    target_x = canvas.host_port_center_x - 7.5
+                    target_y = canvas.host_port_center_y - 12
+                    adjust_dx = target_x - metal_coords[0]
+                    adjust_dy = target_y - metal_coords[1]
+                    for item in canvas.find_withtag("usb"):
+                        canvas.move(item, adjust_dx, adjust_dy)
+                    # LED变绿
+                    canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
+                    canvas.status_label.config(text="正在下载资料...", fg="#00d4ff")
+                    self.progress_label.config(text="下载中 0%", fg="#f39c12")
+                    self.start_download(canvas)
+                    return
 
-            # 显示对准状态
-            if distance < 50:
-                if not self.usb_aligned:
-                    self.usb_aligned = True
-                    status_label.config(text="✅ 靠近接口了，继续移动！", fg="#27ae60")
-            else:
-                if self.usb_aligned:
-                    self.usb_aligned = False
-                    status_label.config(text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中", fg="#ffffff")
+            # 阶段2：检测显示屏接口
+            if self.phase == 2 and self.download_completed and not self.upload_completed:
+                distance = ((metal_center_x - canvas.screen_port_center_x) ** 2 + (metal_center_y - canvas.screen_port_center_y) ** 2) ** 0.5
+                if distance < 35:
+                    self.usb_dragging = False
+                    self.usb_plugged = True
+                    # 吸附到显示屏接口
+                    target_x = canvas.screen_port_center_x - 7.5
+                    target_y = canvas.screen_port_center_y - 12
+                    adjust_dx = target_x - metal_coords[0]
+                    adjust_dy = target_y - metal_coords[1]
+                    for item in canvas.find_withtag("usb"):
+                        canvas.move(item, adjust_dx, adjust_dy)
+                    canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
+                    canvas.status_label.config(text="正在输入资料...", fg="#00d4ff")
+                    self.progress_label.config(text="输入中 0%", fg="#f39c12")
+                    self.start_upload(canvas)
+                    return
 
         def on_usb_release(event):
-            """释放U盘（只有在没自动吸附时才会触发）"""
-            if self.usb_plugged or self.download_progress >= 100:
+            if self.usb_plugged:
                 return
             self.usb_dragging = False
-            canvas = event.widget
-            # 如果释放时已经很接近了，也自动吸附
-            metal_coords = canvas.coords(canvas.usb_metal_id)
-            metal_center_x = (metal_coords[0] + metal_coords[2]) / 2
-            metal_center_y = (metal_coords[1] + metal_coords[3]) / 2
-            distance = ((metal_center_x - canvas.port_center_x) ** 2 + 
-                       (metal_center_y - canvas.port_center_y) ** 2) ** 0.5
-            if distance < 40:
-                # 也吸附
-                self.usb_plugged = True
-                target_metal_x = canvas.port_center_x - 7.5
-                target_metal_y = canvas.port_center_y - 13
-                dx_adjust = target_metal_x - metal_coords[0]
-                dy_adjust = target_metal_y - metal_coords[1]
-                for item in canvas.find_withtag("usb"):
-                    canvas.move(item, dx_adjust, dy_adjust)
-                canvas.itemconfig(canvas.usb_led_id, fill="#27ae60")
-                status_label.config(text="🔄 设备已连接，正在传输数据...", fg="#00d4ff")
-                self.start_download(canvas, status_label)
-                return
-            # 否则返回初始位置
-            current_x = canvas.coords(canvas.usb_led_id)[0]
-            current_y = canvas.coords(canvas.usb_led_id)[1]
-            dx = canvas.usb_init_x - current_x
-            dy = canvas.usb_init_y - current_y
-            for item in canvas.find_withtag("usb"):
-                canvas.move(item, dx, dy)
-            status_label.config(text="💡 提示：将U盘从左侧拖到右侧主机的USB接口中", fg="#ffffff")
 
-        # 创建UI并绑定事件
-        main_canvas, status_label = create_ui()
-
-        # 绑定U盘拖动事件
+        # 绑定事件
         main_canvas.bind("<ButtonPress-1>", on_usb_click)
         main_canvas.bind("<B1-Motion>", on_usb_drag)
         main_canvas.bind("<ButtonRelease-1>", on_usb_release)
 
-        # 启动主循环（增加异常处理）
+        # 启动主循环
         try:
             root.mainloop()
         except Exception as e:
-            print(f"数据下载任务GUI运行错误: {e}")
+            print(f"数据传输任务GUI运行错误: {e}")
             self.task_completed = False
 
-        # GUI关闭后，返回任务是否完成
         if self.task_completed:
-            self.complete()  # 标记任务为已完成
+            self.complete()
             return True
         return False
 
+    def start_download(self, canvas):
+        """开始下载进度"""
+        if self.download_progress >= 100:
+            return
+        self.download_progress += 10
+        if self.download_progress > 100:
+            self.download_progress = 100
+
+        self.progress_label.config(text=f"下载中 {self.download_progress}%", fg="#27ae60" if self.download_progress > 50 else "#f39c12")
+
+        if self.download_progress >= 100:
+            self.complete_download_phase(canvas)
+            return
+
+        self.download_after_id = canvas.after(800, self.start_download, canvas)
+
+    def complete_download_phase(self, canvas):
+        """完成下载阶段"""
+        self.download_completed = True
+        self.phase = 2
+        self.usb_plugged = False
+
+        # 更新UI
+        self.progress_label.config(text="下载完成!", fg="#00ff00")
+        canvas.status_label.config(text="阶段2/2：将U盘插入显示屏下方的输入接口", fg="#ffcc00")
+        
+        # 更新阶段指示器
+        canvas.phase1_label.config(fg="#27ae60")
+        canvas.phase2_label.config(fg="#00d4ff", font=("SimHei", 11, "bold"))
+        
+        # 隐藏主机提示，显示显示屏提示
+        canvas.itemconfig(canvas.host_port_hint, state='hidden')
+        canvas.itemconfig(canvas.screen_port_hint, state='normal')
+        
+        # LED闪烁提示
+        canvas.itemconfig(canvas.usb_led_id, fill="#ffcc00")
+        
+        # 将U盘移回初始位置附近
+        metal_coords = canvas.coords(canvas.usb_metal_id)
+        current_metal_x = metal_coords[0]
+        current_metal_y = metal_coords[1]
+        # 移动到左侧可拖动区域
+        target_x = 100
+        target_y = 320
+        dx = target_x - current_metal_x
+        dy = target_y - current_metal_y
+        for item in canvas.find_withtag("usb"):
+            canvas.move(item, dx, dy)
+        
+        # LED变回待机状态
+        canvas.after(500, lambda: canvas.itemconfig(canvas.usb_led_id, fill="#333333"))
+
+    def start_upload(self, canvas):
+        """开始上传进度"""
+        if self.upload_progress >= 100:
+            return
+        self.upload_progress += 10
+        if self.upload_progress > 100:
+            self.upload_progress = 100
+
+        self.progress_label.config(text=f"输入中 {self.upload_progress}%", fg="#27ae60" if self.upload_progress > 50 else "#f39c12")
+
+        if self.upload_progress >= 100:
+            self.complete_upload_phase(canvas)
+            return
+
+        self.upload_after_id = canvas.after(800, self.start_upload, canvas)
+
+    def complete_upload_phase(self, canvas):
+        """完成上传阶段"""
+        self.upload_completed = True
+        self.task_completed = True
+
+        # 更新UI
+        self.progress_label.config(text="传输完成!", fg="#00ff00")
+        canvas.status_label.config(text="任务完成!", fg="#00ff00")
+        canvas.phase2_label.config(fg="#27ae60")
+        
+        # LED常亮绿色
+        canvas.itemconfig(canvas.usb_led_id, fill="#00ff00")
+        
+        # 禁用拖动
+        canvas.unbind("<ButtonPress-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<ButtonRelease-1>")
+
+        # 弹出完成提示
+        messagebox.showinfo("任务完成", "数据传输完成！")
+        canvas.after(800, lambda: self._cleanup_window(self.task_window))
+
     def _cleanup_window(self, root):
-        """窗口清理函数"""
-        # 取消进度更新定时器
+        """清理窗口"""
         if self.download_after_id:
             try:
                 root.after_cancel(self.download_after_id)
             except:
                 pass
+        if self.upload_after_id:
+            try:
+                root.after_cancel(self.upload_after_id)
+            except:
+                pass
         self.usb_dragging = False
         self.usb_plugged = False
-        self.usb_aligned = False
         if root:
             root.quit()
             root.destroy()
-
-    def start_download(self, canvas, status_label):
-        """开始下载进度更新（实例方法）"""
-        if self.download_progress >= 100 or not self.usb_plugged:
-            return
-
-        # 更新进度（每秒涨8%，需要约12.5秒完成，略慢一些增加紧张感）
-        self.download_progress += 8
-        if self.download_progress > 100:
-            self.download_progress = 100
-
-        # 更新进度显示
-        if self.progress_label:
-            self.progress_label.config(text=f"{self.download_progress}%", fg="#27ae60" if self.download_progress > 50 else "#f39c12")
-        status_label.config(text=f"🔄 数据传输中... {self.download_progress}%")
-
-        # 进度到100%，完成任务
-        if self.download_progress >= 100:
-            self.complete_download(canvas, status_label)
-            return
-
-        # 继续更新进度（1秒后）
-        self.download_after_id = canvas.after(1000, self.start_download, canvas, status_label)
-
-    def complete_download(self, canvas, status_label):
-        """完成下载任务（实例方法）"""
-        self.usb_plugged = False
-        status_label.config(text="✅ 传输完成！", fg="#00ff00")
-
-        if self.progress_label:
-            self.progress_label.config(text="完成！", fg="#00ff00")
-
-        # LED闪烁完成
-        canvas.itemconfig(canvas.usb_led_id, fill="#00ff00")
-
-        # 禁用U盘拖动（解绑事件）
-        canvas.unbind("<ButtonPress-1>")
-        canvas.unbind("<B1-Motion>")
-        canvas.unbind("<ButtonRelease-1>")
-
-        self.task_completed = True
-        # 弹出完成提示
-        messagebox.showinfo("任务完成", "🎉 数据下载完成！")
-        # 延迟关闭窗口（让用户看到提示）
-        canvas.after(1000, lambda: self._cleanup_window(self.task_window))
 
 
 class CalibrateDownEngineTask(Task):
@@ -2556,6 +2715,14 @@ class RefuelTask(Task):
         self.task_window = None      # 任务窗口对象
         self.fuel_barrel_id = None   # 燃油桶ID（红色油桶）
         self.barrel_ids = []         # 所有油桶ID列表
+    
+    def _lighten_color(self, hex_color, amount):
+        """使颜色变亮的辅助函数"""
+        hex_color = hex_color.lstrip('#')
+        r = min(255, int(hex_color[0:2], 16) + amount)
+        g = min(255, int(hex_color[2:4], 16) + amount)
+        b = min(255, int(hex_color[4:6], 16) + amount)
+        return f"#{r:02x}{g:02x}{b:02x}"
 
     def run_task_gui(self, main_root=None) -> bool:
         """
@@ -2604,43 +2771,62 @@ class RefuelTask(Task):
             root,
             width=780,
             height=580,
-            bg="#ffffff",
+            bg="#2c3e50",
             highlightthickness=2,
             highlightbackground="#e94560"
         )
         main_canvas.pack(pady=10, padx=10)
 
-        # ========== 绘制灰色底板（横向三等分） ==========
-        # 底板整体尺寸
+        # ========== 绘制深色科技底板 ==========
         board_x1, board_y1 = 40, 40
         board_x2, board_y2 = 740, 540
         board_width = board_x2 - board_x1
         board_height = board_y2 - board_y1
         
-        # 绘制灰色底板
+        # 绘制科技风格底板
         main_canvas.create_rectangle(
             board_x1, board_y1, board_x2, board_y2,
-            fill="#7f8c8d", outline="#000000", width=2,
+            fill="#34495e", outline="#1a252f", width=3,
             tags="board"
         )
         
-        # 横向三等分，绘制5px宽黑色分隔条
-        # 第一条分隔线（1/3位置）
+        # 添加网格装饰线
+        grid_step = 50
+        for x in range(board_x1, board_x2 + 1, grid_step):
+            main_canvas.create_line(
+                x, board_y1, x, board_y2,
+                fill="#2c3e50", width=1
+            )
+        for y in range(board_y1, board_y2 + 1, grid_step):
+            main_canvas.create_line(
+                board_x1, y, board_x2, y,
+                fill="#2c3e50", width=1
+            )
+        
+        # 横向三等分，绘制科技风格分隔条
         split1_y = board_y1 + board_height / 3
         main_canvas.create_rectangle(
-            board_x1, split1_y - 2.5,  # 上下各2.5px，总宽度5px
-            board_x2, split1_y + 2.5,
-            fill="#000000", outline="",
+            board_x1, split1_y - 3,
+            board_x2, split1_y + 3,
+            fill="#e74c3c", outline="#c0392b", width=1,
             tags="split_line"
         )
         
-        # 第二条分隔线（2/3位置）
         split2_y = board_y1 + 2 * board_height / 3
         main_canvas.create_rectangle(
-            board_x1, split2_y - 2.5,
-            board_x2, split2_y + 2.5,
-            fill="#000000", outline="",
+            board_x1, split2_y - 3,
+            board_x2, split2_y + 3,
+            fill="#e74c3c", outline="#c0392b", width=1,
             tags="split_line"
+        )
+
+        # ========== 添加标题到画布顶部 ==========
+        main_canvas.create_text(
+            board_x1 + board_width / 2, board_y1 + 25,
+            text="⛽ 燃料补给站",
+            font=(font_family, 18, "bold"),
+            fill="#f1c40f",
+            tags="title"
         )
 
         # ========== 生成随机颜色列表（普通油桶用） ==========
@@ -2673,131 +2859,238 @@ class RefuelTask(Task):
         fuel_col = random.randint(0, 2)
         
         color_idx = 0  # 随机颜色索引
-        # 绘制3行3列油桶
+        
+        # ========== 先绘制所有普通油桶 ==========
         for row in range(3):
             for col in range(3):
-                # 计算油桶左上角坐标
-                # 行偏移（考虑分隔条）
-                row_offset = board_y1 + row * (row_height + 5) + (row_height - barrel_height) / 2
-                # 列偏移
-                col_offset = board_x1 + col * col_width + (col_width - barrel_width) / 2
-                
                 # 判断是否是燃油桶
                 is_fuel = (row == fuel_row) and (col == fuel_col)
                 
-                # ========== 绘制长方形油桶主体 ==========
                 if is_fuel:
-                    # 燃油桶：红色主体
-                    barrel_color = "#ff0000"  # 红色桶身
-                    outline_color = "#cc0000"
-                    barrel_id = main_canvas.create_rectangle(
-                        col_offset, row_offset,
-                        col_offset + barrel_width, row_offset + barrel_height,
-                        fill=barrel_color, outline=outline_color, width=2,
-                        tags="fuel_barrel"
-                    )
-                    self.fuel_barrel_id = barrel_id
-                else:
-                    # 普通油桶：随机颜色
-                    barrel_color = random_colors[color_idx]
-                    color_idx += 1
-                    outline_color = "#333333"
-                    barrel_id = main_canvas.create_rectangle(
-                        col_offset, row_offset,
-                        col_offset + barrel_width, row_offset + barrel_height,
-                        fill=barrel_color, outline=outline_color, width=2,
-                        tags="barrel"
-                    )
-                    self.barrel_ids.append(barrel_id)
+                    # 跳过燃油桶，稍后单独绘制
+                    continue
                 
-                # ========== 为所有油桶添加统一的棕色盖子 ==========
-                # 盖子底座（棕色，略窄于桶身）
+                # 计算油桶左上角坐标
+                row_offset = board_y1 + row * (row_height + 5) + (row_height - barrel_height) / 2
+                col_offset = board_x1 + col * col_width + (col_width - barrel_width) / 2
+                
+                # 桶身主色
+                barrel_id = main_canvas.create_rectangle(
+                    col_offset, row_offset,
+                    col_offset + barrel_width, row_offset + barrel_height,
+                    fill=random_colors[color_idx], outline="#2c3e50", width=2,
+                    tags="barrel"
+                )
+                color_idx += 1
+                # 桶身内部颜色稍浅
+                main_canvas.create_rectangle(
+                    col_offset + 4, row_offset + 4,
+                    col_offset + barrel_width - 4, row_offset + barrel_height - 4,
+                    fill=self._lighten_color(random_colors[color_idx - 1], 20), outline="",
+                    tags="barrel"
+                )
+                self.barrel_ids.append(barrel_id)
+                
+                # 盖子底座（金属质感）
                 lid_x1 = col_offset + lid_offset
                 lid_y1 = row_offset - lid_height
                 lid_x2 = col_offset + barrel_width - lid_offset
                 lid_y2 = row_offset
                 main_canvas.create_rectangle(
                     lid_x1, lid_y1, lid_x2, lid_y2,
-                    fill="#8B4513", outline="#5D2906", width=1,
-                    tags="barrel_lid" if not is_fuel else "fuel_lid"
+                    fill="#95a5a6", outline="#7f8c8d", width=2,
+                    tags="barrel_lid"
                 )
                 
-                # ========== 盖子提手（所有油桶都有，燃油桶提手更粗） ==========
+                # 盖子提手
                 handle_y = lid_y1 + lid_height / 2
                 handle_x1 = lid_x1 + (lid_x2 - lid_x1) * 0.3
                 handle_x2 = lid_x1 + (lid_x2 - lid_x1) * 0.7
-                if is_fuel:
-                    # 燃油桶提手更粗，颜色更深
-                    main_canvas.create_line(
-                        handle_x1, handle_y, handle_x2, handle_y,
-                        fill="#5D2906", width=3,
-                        tags="fuel_lid_handle"
-                    )
-                else:
-                    # 普通油桶提手
-                    main_canvas.create_line(
-                        handle_x1, handle_y, handle_x2, handle_y,
-                        fill="#5D2906", width=2,
-                        tags="barrel_lid_handle"
-                    )
+                main_canvas.create_line(
+                    handle_x1, handle_y, handle_x2, handle_y,
+                    fill="#bdc3c7", width=3,
+                    tags="barrel_lid"
+                )
                 
-                # ========== 油桶高光（模拟立体感） ==========
-                highlight_width = barrel_width * 0.1
-                highlight_height = barrel_height * 0.8
+                # 高光效果
+                highlight_width = barrel_width * 0.15
+                highlight_height = barrel_height * 0.7
                 main_canvas.create_rectangle(
-                    col_offset + 5, row_offset + 5,
-                    col_offset + 5 + highlight_width, row_offset + 5 + highlight_height,
-                    fill="#ffffff", outline="", stipple="gray50",
+                    col_offset + 8, row_offset + 8,
+                    col_offset + 8 + highlight_width, row_offset + 8 + highlight_height,
+                    fill="#ecf0f1", outline="", stipple="gray25",
                     tags="barrel_highlight"
                 )
-
-        # ========== 任务状态标签 ==========
-        status_label = tk.Label(
-            root,
-            text="任务状态：未完成（找到并点击红色燃油桶）",
-            font=(font_family, 14, "bold"),
-            bg="#1a1a2e",
-            fg="#ffffff",
-            wraplength=780
+        
+        # ========== 最后绘制燃油桶（确保在最上层） ==========
+        fuel_row_offset = board_y1 + fuel_row * (row_height + 5) + (row_height - barrel_height) / 2
+        fuel_col_offset = board_x1 + fuel_col * col_width + (col_width - barrel_width) / 2
+        
+        # 燃油桶主体
+        barrel_id = main_canvas.create_rectangle(
+            fuel_col_offset, fuel_row_offset,
+            fuel_col_offset + barrel_width, fuel_row_offset + barrel_height,
+            fill="#c0392b", outline="#922b21", width=3,
+            tags="fuel_barrel"
         )
-        status_label.pack(pady=5)
+        # 燃油桶内部渐变效果
+        main_canvas.create_rectangle(
+            fuel_col_offset + 5, fuel_row_offset + 5,
+            fuel_col_offset + barrel_width - 5, fuel_row_offset + barrel_height - 5,
+            fill="#e74c3c", outline="",
+            tags="fuel_barrel"
+        )
+        # 燃油桶金属边框
+        main_canvas.create_rectangle(
+            fuel_col_offset - 3, fuel_row_offset - 3,
+            fuel_col_offset + barrel_width + 3, fuel_row_offset + barrel_height + 3,
+            outline="#f39c12", width=3,
+            tags="fuel_barrel"
+        )
+        self.fuel_barrel_id = barrel_id
+        
+        # 燃油桶盖子
+        lid_x1 = fuel_col_offset + lid_offset
+        lid_y1 = fuel_row_offset - lid_height
+        lid_x2 = fuel_col_offset + barrel_width - lid_offset
+        lid_y2 = fuel_row_offset
+        main_canvas.create_rectangle(
+            lid_x1, lid_y1, lid_x2, lid_y2,
+            fill="#f39c12", outline="#d35400", width=2,
+            tags="fuel_barrel_lid"
+        )
+        
+        # 燃油桶提手
+        handle_y = lid_y1 + lid_height / 2
+        handle_x1 = lid_x1 + (lid_x2 - lid_x1) * 0.3
+        handle_x2 = lid_x1 + (lid_x2 - lid_x1) * 0.7
+        main_canvas.create_line(
+            handle_x1, handle_y, handle_x2, handle_y,
+            fill="#f1c40f", width=4,
+            tags="fuel_barrel_lid"
+        )
+        # 提手装饰
+        main_canvas.create_oval(
+            handle_x1 - 3, handle_y - 3,
+            handle_x1 + 3, handle_y + 3,
+            fill="#f39c12", outline="#d35400",
+            tags="fuel_barrel_lid"
+        )
+        main_canvas.create_oval(
+            handle_x2 - 3, handle_y - 3,
+            handle_x2 + 3, handle_y + 3,
+            fill="#f39c12", outline="#d35400",
+            tags="fuel_barrel_lid"
+        )
+        
+        # 燃油桶高光
+        highlight_width = barrel_width * 0.15
+        highlight_height = barrel_height * 0.7
+        main_canvas.create_rectangle(
+            fuel_col_offset + 8, fuel_row_offset + 8,
+            fuel_col_offset + 8 + highlight_width, fuel_row_offset + 8 + highlight_height,
+            fill="#ecf0f1", outline="", stipple="gray25",
+            tags="fuel_barrel_highlight"
+        )
+
+        # ========== 任务状态标签（科技风格） ==========
+        status_frame = tk.Frame(root, bg="#1a1a2e")
+        status_frame.pack(pady=10)
+        
+        status_label = tk.Label(
+            status_frame,
+            text="🎯 找到并点击红色燃油桶",
+            font=(font_family, 16, "bold"),
+            bg="#1a1a2e",
+            fg="#f1c40f"
+        )
+        status_label.pack()
+        
+        hint_label = tk.Label(
+            status_frame,
+            text="提示：寻找带有金色边框的红色油桶",
+            font=(font_family, 11),
+            bg="#1a1a2e",
+            fg="#95a5a6"
+        )
+        hint_label.pack(pady=5)
 
         # ========== 鼠标点击事件 ==========
         def on_barrel_click(event):
             """点击油桶事件处理"""
             if self.task_completed:
                 return
-                
+            
             # 获取点击的对象
-            clicked_items = main_canvas.find_closest(event.x, event.y)
+            clicked_items = main_canvas.find_overlapping(
+                event.x - 1, event.y - 1,
+                event.x + 1, event.y + 1
+            )
+            
             if not clicked_items:
                 return
             
-            clicked_id = clicked_items[0]
+            # 遍历所有重叠的元素，找到油桶相关的
+            clicked_id = None
+            for item_id in clicked_items:
+                tags = main_canvas.gettags(item_id)
+                if any("fuel_" in tag or tag in ["barrel", "barrel_lid", "barrel_highlight"] for tag in tags):
+                    clicked_id = item_id
+                    break
             
-            # 检查是否点击了燃油桶（桶身/盖子/提手）
+            if not clicked_id:
+                return
+            
+            # 获取找到的元素的标签
             tags = main_canvas.gettags(clicked_id)
-            if "fuel_barrel" in tags or "fuel_lid" in tags or "fuel_lid_handle" in tags:
+            
+            # 燃油桶标签：fuel_barrel, fuel_barrel_lid, fuel_barrel_highlight
+            if any("fuel_" in tag for tag in tags):
+                # 添加选中动画效果
+                main_canvas.itemconfig("fuel_barrel", fill="#2ecc71")
+                main_canvas.itemconfig("fuel_barrel_lid", fill="#2ecc71")
+                main_canvas.itemconfig("fuel_barrel_highlight", fill="#2ecc71")
+                root.update()
+                
                 # 标记任务完成
                 self.task_completed = True
                 self.complete()
                 
                 # 更新状态标签
                 status_label.config(
-                    text="任务状态：燃料补给成功！",
-                    fg="#00ff00"
+                    text="✅ 燃料补给成功！",
+                    fg="#2ecc71"
                 )
+                hint_label.config(text="任务完成！")
                 
-                # 禁用所有油桶点击（修改光标样式）
+                # 禁用所有油桶点击
                 main_canvas.config(cursor="arrow")
+                
+                # 添加庆祝效果
+                main_canvas.create_text(
+                    board_x1 + board_width / 2, board_y1 + board_height / 2,
+                    text="🎉",
+                    font=(font_family, 48, "bold"),
+                    fill="#f1c40f",
+                    tags="celebration"
+                )
                 
                 # 弹出完成提示
                 def show_complete_msg():
                     messagebox.showinfo("任务完成", "🎉 燃料补给成功！", parent=root)
                     self._cleanup_window(root)
                 
-                # 异步显示提示框
-                root.after(100, show_complete_msg)
+                root.after(800, show_complete_msg)
+            elif any(tag in ["barrel", "barrel_lid", "barrel_highlight"] for tag in tags):
+                # 点击了普通油桶，显示提示
+                status_label.config(
+                    text="❌ 这不是燃料桶！",
+                    fg="#e74c3c"
+                )
+                root.after(1000, lambda: status_label.config(
+                    text="🎯 找到并点击红色燃油桶",
+                    fg="#f1c40f"
+                ))
 
         # 绑定点击事件
         main_canvas.bind("<Button-1>", on_barrel_click)
@@ -3315,11 +3608,6 @@ class StartSatelliteTask(Task):
         if not self.task_window.master:
             self.task_window.quit()
 
-import tkinter as tk
-from tkinter import messagebox
-import math
-from tasks import Task  # 导入基础Task类
-
 class OxygenRepairTask(Task):
     """修复氧气管道任务（适配游戏主窗口的模态弹窗版）"""
     def __init__(self):
@@ -3372,9 +3660,9 @@ class OxygenRepairTask(Task):
         """
         # 创建模态弹窗（绑定到游戏主窗口）
         root = tk.Toplevel(main_root) if main_root else tk.Tk()
-        root.title("氧气管道修复任务")
+        root.title("🔧 氧气管道修复任务")
         root.geometry("1000x700")
-        root.configure(bg="#add8e6")
+        root.configure(bg="#0c1929")  # 科技风格深蓝背景
         root.resizable(False, False)
         
         # 设置为模态窗口（阻塞游戏主窗口操作）
@@ -3382,106 +3670,135 @@ class OxygenRepairTask(Task):
             root.transient(main_root)
             root.grab_set()
             root.wm_attributes("-topmost", True)
-
-        # 画布
-        canvas = tk.Canvas(root, width=980, height=680, bg="#add8e6", highlightthickness=0)
+        
+        # 画布 - 科技风格
+        canvas = tk.Canvas(root, width=980, height=680, bg="#0c1929", highlightthickness=2, highlightbackground="#3498db")
         canvas.pack(padx=10, pady=10)
-
-        # ===================== 绘制元素（保留原有逻辑） =====================
-        # 1. 背景连通管道（连接到屏幕边缘）
+        
+        # 添加科技风格网格背景
+        for x in range(0, 980, 40):
+            canvas.create_line(x, 0, x, 680, fill="#1a3a5c", width=1)
+        for y in range(0, 680, 40):
+            canvas.create_line(0, y, 980, y, fill="#1a3a5c", width=1)
+        
+        # 状态标签
+        status_frame = tk.Frame(root, bg="#0c1929")
+        status_frame.pack(pady=10)
+        
+        status_label = tk.Label(
+            status_frame,
+            text="🔧 按照步骤修复断裂的氧气管道",
+            font=("SimHei", 14, "bold"),
+            fg="#3498db",
+            bg="#0c1929"
+        )
+        status_label.pack()
+        
+        hint_label = tk.Label(
+            status_frame,
+            text="提示：使用螺丝刀拆卸损坏部件，安装新管道和螺母",
+            font=("SimHei", 11),
+            fg="#95a5a6",
+            bg="#0c1929"
+        )
+        hint_label.pack(pady=5)
+        
+        # ===================== 绘制元素（科技风格优化） =====================
+        # 1. 背景连通管道（科技风格发光效果）
         # 左侧横向管道（到左边缘）
         canvas.create_line(
             0, 300, 250, 300,
-            width=40, fill="#1a1a1a", capstyle=tk.ROUND, tags="bg_pipe"
+            width=40, fill="#1a2a3a", capstyle=tk.ROUND, tags="bg_pipe"
         )
         # 右侧横向管道（到右边缘）
         canvas.create_line(
             550, 300, 980, 300,
-            width=40, fill="#1a1a1a", capstyle=tk.ROUND, tags="bg_pipe"
+            width=40, fill="#1a2a3a", capstyle=tk.ROUND, tags="bg_pipe"
         )
         # 顶部竖向管道（到上边缘）
         canvas.create_line(
             400, 0, 400, 300,
-            width=40, fill="#1a1a1a", capstyle=tk.ROUND, tags="bg_pipe"
+            width=40, fill="#1a2a3a", capstyle=tk.ROUND, tags="bg_pipe"
         )
         # 底部竖向管道（到下边缘）
         canvas.create_line(
             400, 300, 400, 680,
-            width=40, fill="#1a1a1a", capstyle=tk.ROUND, tags="bg_pipe"
+            width=40, fill="#1a2a3a", capstyle=tk.ROUND, tags="bg_pipe"
         )
-
-        # 2. 断裂管道（放大版，两段连体：左段左下15°，右段右下15°）
+        
+        # 2. 断裂管道（科技风格发光效果）
         # 左段管道（左下15°）
         broken_pipe_left = canvas.create_line(
             self.pipe_base_pos[0]-150, self.pipe_base_pos[1],
             self.pipe_base_pos[0], self.pipe_base_pos[1]+50,
-            width=50, fill="#222222", capstyle=tk.ROUND, tags="broken_pipe"
+            width=50, fill="#c0392b", capstyle=tk.ROUND, tags="broken_pipe"
         )
         # 右段管道（右下15°）
         broken_pipe_right = canvas.create_line(
             self.pipe_base_pos[0], self.pipe_base_pos[1]+50,
             self.pipe_base_pos[0]+150, self.pipe_base_pos[1],
-            width=50, fill="#222222", capstyle=tk.ROUND, tags="broken_pipe"
+            width=50, fill="#c0392b", capstyle=tk.ROUND, tags="broken_pipe"
         )
-        # 断裂缝标记（加粗）
+        # 断裂缝标记（加粗警告色）
         canvas.create_line(
             self.pipe_base_pos[0], self.pipe_base_pos[1]+50,
             self.pipe_base_pos[0], self.pipe_base_pos[1]+80,
-            fill="#ff0000", width=4
+            fill="#e74c3c", width=4
         )
         canvas.create_text(
             self.pipe_base_pos[0], self.pipe_base_pos[1]+90,
-            text="断裂", fill="#ff0000", font=("SimHei", 14, "bold")
+            text="⚠️ 断裂", fill="#e74c3c", font=("SimHei", 14, "bold")
         )
-
-        # 3. 螺丝刀（左下角，可拖动）
+        
+        # 3. 螺丝刀（科技风格）
         # 黄色手柄（竖直长方形）
         screwdriver_handle = canvas.create_rectangle(
             80, 550, 120, 650,
-            fill="#ffcc00", outline="#e6b800", width=2, tags="screwdriver"
+            fill="#f1c40f", outline="#d35400", width=2, tags="screwdriver"
         )
         # 银色刀杆（更细，竖直长方形，连接手柄）
         screwdriver_rod = canvas.create_rectangle(
             90, 400, 110, 550,
-            fill="#cccccc", outline="#999999", width=2, tags="screwdriver"
+            fill="#95a5a6", outline="#7f8c8d", width=2, tags="screwdriver"
         )
         # 刀头标记（前1/4处）
         canvas.create_line(
             90, 400, 110, 400,
-            fill="#ff0000", width=2, tags="screwdriver_tip"
+            fill="#e74c3c", width=3, tags="screwdriver_tip"
         )
-        canvas.create_text(90, 660, text="螺丝刀", fill="#000000", font=("SimHei", 12))
+        canvas.create_text(100, 670, text="🔧 螺丝刀", fill="#f1c40f", font=("SimHei", 12))
 
         # 4. 新管道（加长版，屏幕右下角，可拖动，水平）
         new_pipe = canvas.create_line(
             750, 550, 1000, 550,
-            width=50, fill="#222222", capstyle=tk.ROUND, tags="new_pipe"
+            width=50, fill="#2ecc71", capstyle=tk.ROUND, tags="new_pipe"
         )
+        canvas.create_text(875, 510, text="🆕 新管道", fill="#2ecc71", font=("SimHei", 12))
 
-        # 5. 螺母（放大版，可拖动，最后绘制置顶显示）
+        # 5. 螺母（科技风格）
         nut1 = canvas.create_oval(
             self.nut1_base_pos[0]-15, self.nut1_base_pos[1]-15,
             self.nut1_base_pos[0]+15, self.nut1_base_pos[1]+15,
-            fill="#888888", outline="#000000", width=3, tags="nut1 nut"
+            fill="#3498db", outline="#2980b9", width=3, tags="nut1 nut"
         )
         nut2 = canvas.create_oval(
             self.nut2_base_pos[0]-15, self.nut2_base_pos[1]-15,
             self.nut2_base_pos[0]+15, self.nut2_base_pos[1]+15,
-            fill="#888888", outline="#000000", width=3, tags="nut2 nut"
+            fill="#3498db", outline="#2980b9", width=3, tags="nut2 nut"
         )
 
         # 强制将螺母置于最顶层（双重保障）
         canvas.tag_raise("nut", "all")
 
-        # 6. 底部提示文本框
+        # 6. 底部提示文本框（科技风格）
         tip_label = tk.Label(
-            root, text="", bg="#add8e6", font=("SimHei", 14), fg="#006600"
+            root, text="", bg="#0c1929", font=("SimHei", 14), fg="#2ecc71"
         )
         tip_label.place(x=450, y=650, anchor=tk.CENTER)
 
-        # 7. 顶部操作提示
-        canvas.create_text(450, 20, text="操作流程：1.拖螺丝刀头到螺母（卸螺丝）→ 2.拖螺母移开", fill="#000000", font=("SimHei", 12))
-        canvas.create_text(450, 40, text="3.拖断裂管道移除 → 4.拖新管道吸附 → 5.拖螺母吸附 → 6.拖螺丝刀装螺母", fill="#000000", font=("SimHei", 12))
+        # 7. 顶部操作提示（科技风格）
+        canvas.create_text(490, 20, text="🔧 操作流程：", fill="#3498db", font=("SimHei", 12, "bold"))
+        canvas.create_text(490, 40, text="1.螺丝刀→螺母卸螺丝 2.螺母移开 3.断裂管道移除 4.新管道吸附 5.螺母吸附 6.螺丝刀装螺母", fill="#95a5a6", font=("SimHei", 10))
 
         # ===================== 核心逻辑函数（保留原有逻辑） =====================
         def distance(pos1, pos2):
@@ -3696,10 +4013,6 @@ class OxygenRepairTask(Task):
         self.is_completed = True
         return True
 
-import tkinter as tk
-from tkinter import messagebox
-import math
-from tasks import Task  # 导入基础Task类
 class MorseCodeTask(Task):
     """摩斯密码解锁任务（带图形化交互）"""
     
@@ -3707,6 +4020,7 @@ class MorseCodeTask(Task):
         super().__init__("破解摩斯密码", "主控室", 3)
         self.task_completed = False  # 记录GUI任务是否完成
         self.task_window = None
+        self.game_instance = None  # 保存游戏实例供外部关闭使用
     
     def run_task_gui(self, main_root=None) -> bool:
         """
@@ -3714,51 +4028,102 @@ class MorseCodeTask(Task):
         :param main_root: 主窗口对象（可选）
         :return: 任务是否完成
         """
-        # 确保只创建一个任务窗口
-        if self.task_window and tk.Toplevel.winfo_exists(self.task_window):
-            self.task_window.lift()
-            return False
-        
-        # 创建窗口（优先使用Toplevel依附主窗口）
-        if main_root and isinstance(main_root, tk.Tk):
-            self.task_window = tk.Toplevel(main_root)
-            # 设置为模态窗口
-            self.task_window.transient(main_root)
-            self.task_window.grab_set()
-        else:
-            self.task_window = tk.Tk()  # 无主窗口时创建独立窗口
-        
-        root = self.task_window
-        root.title("主控室 - 摩斯密码解锁任务")
-        root.geometry("1000x1000")
-        root.configure(bg="#add8e6")
-        root.resizable(True, True)
-        
-        # 确保窗口关闭时正确清理
-        def on_close():
-            self.task_completed = False
-            if main_root:
-                self.task_window.destroy()
+        try:
+            # 确保只创建一个任务窗口
+            if self.task_window and tk.Toplevel.winfo_exists(self.task_window):
+                self.task_window.lift()
+                return False
+            
+            # 创建窗口（优先使用Toplevel依附主窗口）
+            if main_root and isinstance(main_root, tk.Tk):
+                self.task_window = tk.Toplevel(main_root)
+                # 设置为模态窗口但不独占焦点（允许主窗口弹出消息框）
+                self.task_window.transient(main_root)
             else:
-                root.quit()
-                root.destroy()
-        
-        root.protocol("WM_DELETE_WINDOW", on_close)
-        
-        # 创建摩斯密码解锁游戏实例
-        import haikediannao  # 导入海克迪脑模块
-        game_instance = haikediannao.MorseCodeUnlockGame(root)
-        
-        # 运行窗口（适配模态模式）
-        if main_root:
-            root.wait_window()  # 阻塞直到窗口关闭
-        else:
+                self.task_window = tk.Tk()  # 无主窗口时创建独立窗口
+            
+            root = self.task_window
+            root.title("主控室 - 摩斯密码解锁任务")
+            root.geometry("1000x1000")
+            root.configure(bg="#add8e6")
+            root.resizable(True, True)
+            root.wm_attributes("-topmost", False)  # 不置顶，允许主窗口消息框显示在上面
+            
+            # 创建摩斯密码解锁游戏实例
+            import haikediannao  # 导入海克迪脑模块
+            self.game_instance = haikediannao.MorseCodeUnlockGame(root)
+            
+            # 确保窗口关闭时正确清理
+            def on_close():
+                # 只在任务未完成时设置为False，避免覆盖游戏完成状态
+                if not self.task_completed:
+                    self.task_completed = False
+                try:
+                    if main_root:
+                        self.task_window.destroy()
+                    else:
+                        root.quit()
+                        root.destroy()
+                except Exception as e:
+                    print(f"关闭窗口时出错: {e}")
+            
+            root.protocol("WM_DELETE_WINDOW", on_close)
+            
+            # 启动Tkinter主循环（阻塞直到窗口关闭）
             root.mainloop()
-        
-        # 检查游戏是否成功完成
-        self.is_completed = game_instance.ending == 1
-        self.task_completed = game_instance.ending == 1
-        return self.task_completed
+            
+            # 主循环结束后检查任务是否完成
+            if self.game_instance and self.game_instance.ending == 1:
+                self.task_completed = True
+                self.complete()
+                return True
+            return False
+        except Exception as e:
+            print(f"摩斯密码任务出错: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def wait_for_completion(self):
+        """等待游戏完成（阻塞直到游戏结束）"""
+        if self.game_instance and self.task_window:
+            try:
+                # 轮询等待游戏完成
+                while self.task_window and tk.Toplevel.winfo_exists(self.task_window):
+                    if self.game_instance.ending == 1:
+                        break
+                    # 让主循环处理事件
+                    self.task_window.update_idletasks()
+                    self.task_window.after(50)
+            except Exception as e:
+                print(f"等待游戏完成出错: {e}")
+    
+    def is_game_completed(self):
+        """检查游戏是否完成"""
+        if self.game_instance:
+            return self.game_instance.ending == 1
+        return False
+    
+    def close_task_window(self):
+        """关闭任务窗口（由主界面调用）"""
+        try:
+            # 先检查 task_window 是否还存在
+            if self.task_window:
+                try:
+                    if isinstance(self.task_window, tk.Toplevel) and tk.Toplevel.winfo_exists(self.task_window):
+                        self.task_window.destroy()
+                    elif isinstance(self.task_window, tk.Tk) and tk.Tk.winfo_exists(self.task_window):
+                        self.task_window.destroy()
+                except:
+                    pass
+            # 再尝试通过 game_instance 关闭（双重保险）
+            if self.game_instance:
+                try:
+                    self.game_instance.close_window()
+                except:
+                    pass
+        except Exception as e:
+            print(f"关闭摩斯密码窗口出错: {e}")
 
 class RepairMonitorTask(Task):
     """监控室 - 修复监控任务（困难版，三步骤）"""
@@ -4501,6 +4866,234 @@ class BombDefuseTask(Task):
         return self.task_completed
 
 
+class RuinCleanTask(Task):
+    """废墟清理任务（炸弹爆炸后需要清理废墟才能使用房间）"""
+    
+    def __init__(self, room_name=""):
+        super().__init__("清理废墟", room_name, 1)
+        self.task_completed = False
+        self.task_window = None
+        self.on_close_callback = None
+    
+    def run_task_gui(self, main_root=None, on_close_callback=None) -> bool:
+        """
+        运行清理废墟的图形化任务界面
+        :param main_root: 主窗口对象（可选）
+        :param on_close_callback: 任务完成后的回调函数
+        :return: 任务是否完成
+        """
+        if self.task_window and (
+            (isinstance(self.task_window, tk.Toplevel) and tk.Toplevel.winfo_exists(self.task_window)) or
+            (isinstance(self.task_window, tk.Tk) and tk.Tk.winfo_exists(self.task_window))
+        ):
+            self.task_window.lift()
+            return False
+        
+        self.on_close_callback = on_close_callback
+        
+        if main_root and isinstance(main_root, tk.Tk):
+            self.task_window = tk.Toplevel(main_root)
+        else:
+            self.task_window = tk.Tk()
+        
+        root = self.task_window
+        root.title("🏚️ 清理废墟")
+        root.geometry("700x550")
+        root.configure(bg="#1a1a2e")
+        root.resizable(False, False)
+        root.wm_attributes("-topmost", True)
+        
+        font_family = "SimHei"
+        try:
+            tk.font.Font(family=font_family, size=12)
+        except:
+            font_family = "Arial"
+        
+        debris_count = 5
+        cleaned_count = 0
+        debris_items = {}
+        dragging_debris = None
+        drag_offset_x = 0
+        drag_offset_y = 0
+        
+        def create_ui():
+            title_label = tk.Label(
+                root,
+                text="🏚️ 清理废墟 - 拖入垃圾桶",
+                font=(font_family, 20, "bold"),
+                fg="#795548",
+                bg="#1a1a2e"
+            )
+            title_label.pack(pady=10)
+            
+            canvas = tk.Canvas(
+                root,
+                width=600,
+                height=380,
+                bg="#2c3e50",
+                highlightthickness=2,
+                highlightbackground="#795548"
+            )
+            canvas.pack(pady=10)
+            
+            # 绘制垃圾桶
+            trash_x, trash_y = 500, 290
+            trash_width, trash_height = 80, 70
+            
+            # 垃圾桶外框
+            canvas.create_rectangle(
+                trash_x, trash_y, 
+                trash_x + trash_width, trash_y + trash_height,
+                fill="#424242", outline="#212121", width=3, tags="trash"
+            )
+            # 垃圾桶盖子
+            canvas.create_rectangle(
+                trash_x - 5, trash_y - 15, 
+                trash_x + trash_width + 5, trash_y,
+                fill="#616161", outline="#424242", width=2, tags="trash"
+            )
+            # 垃圾桶内阴影
+            canvas.create_rectangle(
+                trash_x + 10, trash_y + 10, 
+                trash_x + trash_width - 10, trash_y + trash_height - 10,
+                fill="#333333", outline="", tags="trash"
+            )
+            # 垃圾桶标签
+            canvas.create_text(
+                trash_x + trash_width/2, trash_y + trash_height/2,
+                text="🗑️", font=(font_family, 24), tags="trash"
+            )
+            
+            status_label = tk.Label(
+                root,
+                text=f"清理进度：{cleaned_count}/{debris_count} - 将碎片拖入垃圾桶",
+                font=(font_family, 12),
+                fg="#ffffff",
+                bg="#1a1a2e"
+            )
+            status_label.pack(pady=5)
+            
+            progress_bar_frame = tk.Frame(root, bg="#1a1a2e")
+            progress_bar_frame.pack(fill="x", padx=50, pady=5)
+            
+            progress_bg = tk.Frame(progress_bar_frame, bg="#333333", height=20)
+            progress_bg.pack(fill="x")
+            progress_bg.pack_propagate(False)
+            
+            progress_fg = tk.Frame(progress_bg, bg="#4caf50", height=20)
+            progress_fg.pack(side="left", fill="x")
+            
+            def update_progress():
+                progress = cleaned_count / debris_count
+                progress_fg.config(width=int(progress_bg.winfo_width() * progress))
+                status_label.config(text=f"清理进度：{cleaned_count}/{debris_count} - 将碎片拖入垃圾桶")
+                root.update_idletasks()
+            
+            # 生成随机位置的碎片
+            debris_shapes = [
+                lambda x, y: canvas.create_polygon(x, y-20, x+25, y+15, x-25, y+15, fill="#654321", outline="#3d2914", tags="debris"),
+                lambda x, y: canvas.create_rectangle(x-15, y-18, x+15, y+18, fill="#5d4e37", outline="#3d3224", tags="debris"),
+                lambda x, y: canvas.create_oval(x-20, y-15, x+20, y+15, fill="#6b4423", outline="#4a2c14", tags="debris"),
+                lambda x, y: canvas.create_polygon(x, y-25, x+20, y, x+10, y+20, x-10, y+20, x-20, y, fill="#7a5a3d", outline="#4a3421", tags="debris"),
+                lambda x, y: canvas.create_rectangle(x-12, y-22, x+12, y+22, fill="#5c4a32", outline="#3d3022", tags="debris"),
+            ]
+            
+            def is_valid_position(x, y, existing_positions, min_distance=60):
+                """检查位置是否有效（不与现有碎片太近，不与垃圾桶重叠）"""
+                # 检查是否与垃圾桶重叠
+                if x > trash_x - 40 and x < trash_x + trash_width + 40 and y > trash_y - 40 and y < trash_y + trash_height + 40:
+                    return False
+                
+                # 检查是否与现有碎片太近
+                for (ex, ey) in existing_positions:
+                    distance = math.sqrt((x - ex) ** 2 + (y - ey) ** 2)
+                    if distance < min_distance:
+                        return False
+                return True
+            
+            existing_positions = []
+            
+            for i in range(debris_count):
+                # 寻找有效位置
+                attempts = 0
+                while attempts < 100:
+                    x = random.randint(50, 400)
+                    y = random.randint(50, 300)
+                    if is_valid_position(x, y, existing_positions):
+                        break
+                    attempts += 1
+                
+                debris_id = debris_shapes[i](x, y)
+                debris_items[debris_id] = [x, y]
+                existing_positions.append((x, y))
+                
+                # 绑定鼠标事件
+                canvas.tag_bind(debris_id, "<Button-1>", lambda e, d=debris_id: on_debris_press(e, d))
+                canvas.tag_bind(debris_id, "<B1-Motion>", lambda e, d=debris_id: on_debris_drag(e, d))
+                canvas.tag_bind(debris_id, "<ButtonRelease-1>", lambda e, d=debris_id: on_debris_release(e, d))
+            
+            def on_debris_press(event, debris_id):
+                """点击碎片开始拖动"""
+                nonlocal dragging_debris, drag_offset_x, drag_offset_y
+                if debris_id in debris_items:
+                    dragging_debris = debris_id
+                    x, y = debris_items[debris_id]
+                    drag_offset_x = event.x - x
+                    drag_offset_y = event.y - y
+                    canvas.tag_raise(debris_id)
+            
+            def on_debris_drag(event, debris_id):
+                """拖动碎片"""
+                if dragging_debris == debris_id and debris_id in debris_items:
+                    new_x = event.x - drag_offset_x
+                    new_y = event.y - drag_offset_y
+                    old_x, old_y = debris_items[debris_id]
+                    dx = new_x - old_x
+                    dy = new_y - old_y
+                    
+                    canvas.move(debris_id, dx, dy)
+                    debris_items[debris_id] = [new_x, new_y]
+            
+            def on_debris_release(event, debris_id):
+                """释放碎片，检查是否拖入垃圾桶"""
+                nonlocal dragging_debris, cleaned_count
+                if dragging_debris == debris_id and debris_id in debris_items:
+                    x, y = debris_items[debris_id]
+                    
+                    # 检查是否在垃圾桶范围内
+                    if (trash_x - 10 < x < trash_x + trash_width + 10 and 
+                        trash_y - 10 < y < trash_y + trash_height + 10):
+                        # 拖入垃圾桶，清理碎片
+                        canvas.delete(debris_id)
+                        del debris_items[debris_id]
+                        cleaned_count += 1
+                        update_progress()
+                        
+                        if cleaned_count >= debris_count:
+                            self.task_completed = True
+                            messagebox.showinfo("🎉 任务完成", "✅ 废墟清理完成！\n房间已恢复正常功能！", parent=root)
+                            on_close()
+                    
+                    dragging_debris = None
+            
+            update_progress()
+        
+        def on_close():
+            if self.on_close_callback:
+                self.on_close_callback(self.task_completed)
+            root.destroy()
+        
+        root.protocol("WM_DELETE_WINDOW", on_close)
+        create_ui()
+        
+        if main_root:
+            root.wait_window()
+        else:
+            root.mainloop()
+        
+        return self.task_completed
+
+
 class TaskGenerator:
     """任务生成器：负责生成随机任务列表"""
     
@@ -4519,6 +5112,7 @@ class TaskGenerator:
         MorseCodeTask(),             # 主控室 - 摩斯密码
         RepairMonitorTask(),         # 监控室 - 修复监控
         BombDefuseTask(),           # 拆弹任务 - 按顺序剪断电线
+        RuinCleanTask(),             # 废墟清理 - 清理所有废墟
     ]
     
     @staticmethod
@@ -4579,6 +5173,8 @@ class TaskGenerator:
             return RepairMonitorTask()
         elif isinstance(task_template, BombDefuseTask):
             return BombDefuseTask()
+        elif isinstance(task_template, RuinCleanTask):
+            return RuinCleanTask()
         # 普通Task类直接创建新实例
         else:
             return Task(

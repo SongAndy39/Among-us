@@ -1,175 +1,283 @@
-# 太空狼人杀 - Among Us 简化版
+# 🚀 Space Werewolf - Among Us Simplified Version
 
-基于Python Tkinter开发的太空狼人杀桌游，支持4-10名玩家同屏对战。
+> A turn-based strategy deduction game inspired by Among Us, built with Python Tkinter.
+> Supports single-device play (4-10 players) and **LAN multiplayer** (4-10 players).
 
-## 游戏简介
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![Tkinter](https://img.shields.io/badge/GUI-Tkinter-green.svg)](https://docs.python.org/3/library/tkinter.html)
+[![License](https://img.shields.io/badge/License-LGPL--2.1-yellow.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/Version-v2.0.0-brightgreen.svg)]()
 
-《太空狼人杀》是一款回合制策略推理游戏，灵感来源于经典游戏Among Us。玩家将被分配为**船员**或**内鬼**两种角色，在太空飞船中展开紧张刺激的生存与欺骗之战。
-三名中国中学生所作。我们时间十分有限，请静待后续更新
+---
 
-## 游戏规则
 
-### 角色分配
+A Space Werewolf tabletop game developed with Python Tkinter, supporting single-device play (4-10 players) and LAN multiplayer (4-10 players).
 
-| 玩家数量 | 内鬼数量 |
-|:--------:|:--------:|
-| 4-6人    | 1人      |
-| 7-10人   | 2人      |
+## Game Introduction
 
-### 胜利条件
+**Space Werewolf** is a turn-based strategy deduction game inspired by the classic game Among Us. Players are assigned to two roles: **Crewmate** or **Impostor**, engaging in a tense and thrilling battle of survival and deception aboard a spaceship.
 
-**船员胜利：**
-- 完成所有常规任务（每名船员需完成3个任务）
-- 投票出局所有内鬼
+Created by three Chinese middle school students. We have very limited time, please stay tuned for future updates.
 
-**内鬼胜利：**
-- 内鬼数量与船员数量相等
-- 氧气系统被破坏后船员未在2回合内修复
+## Game Rules
 
-## 游戏界面
+### Role Assignment
 
-### 主界面
-- 玩家数量选择（4-10人）
-- 开始游戏按钮
+| Player Count | Impostor Count |
+|:------------:|:--------------:|
+| 4-6 players  | 1 Impostor     |
+| 7-10 players | 2 Impostors    |
 
-### 角色查看
-- 显示玩家名称和角色（船员/内鬼）
-- 角色专属提示信息
-- 任务数量提示（仅船员）
+### Victory Conditions
 
-### 游戏主界面
-- **顶部状态栏**：全局回合数、行动步数、紧急会议次数、冷却状态
-- **左侧地图**：飞船地图，可点击移动
-- **右侧信息面板**：当前玩家信息、任务进度
-- **底部日志**：游戏事件记录
+**Crewmate Victory:**
+- Complete all regular tasks (each crewmate needs to complete 3 tasks)
+- Vote out all impostors
 
-## 核心功能
+**Impostor Victory:**
+- Impostor count equals crewmate count (with at least one player eliminated)
+- Crew fails to repair within the time limit after oxygen system is sabotaged
 
-### 移动系统
-- 每回合拥有4点行动步数
-- 点击地图上的房间进行移动
-- 相邻房间才能移动
+## Game Interface
 
-### 任务系统（船员）
-船员需要完成3个常规任务：
-| 任务名称 | 位置 | 难度 |
-|:--------:|:----:|:----:|
-| 修复电线 | 电力室 | ★ |
-| 清理过滤器 | 氧气室 | ★ |
-| 扫描身体 | 医疗室 | ★★ |
-| 下载数据 | 通讯室 | ★★ |
-| 校准引擎 | 引擎室 | ★★ |
-| 反应堆维修 | 反应堆 | ★★★ |
-| 燃料补给 | 燃料室 | ★★ |
-| 启动卫星 | 监控室 | ★★★ |
-| 摩斯密码 | 主控室 | ★★★ |
+### Mode Selection Lobby (Added in v2.0.0)
+- **Single Player**: the original same-screen turn-based mode
+- **Create Room**: shows the local LAN IP and waits for other players
+- **Join Room**: enter the host's IP and your own name to connect
 
-### 破坏系统（内鬼）
-内鬼可破坏以下系统：
+### Role Viewing
+- Display player name and role (Crewmate/Impostor)
+- Role-specific tips
+- Task count display (crewmates only)
 
-**氧气系统：**
-- 破坏后船员获得临时修复任务
-- 船员有2回合时间修复，超时则内鬼胜利
+### Main Game Interface
+- **Top Status Bar**: Global round number, action steps, emergency meeting count, cooldown status
+- **Left Map**: Spaceship map, click to move
+- **Right Info Panel**: Current player info, task progress
+- **Bottom Log**: Game event records
 
-**监控系统：**
-- 破坏后需要完成任务才能恢复
-- 查看监控后所有玩家进入2回合冷却
+## Core Features
 
-### 监控室
-- 仅在监控室可用
-- 显示所有房间的玩家和尸体数量
-- **完成查看**：对所有存活玩家设置2回合冷却
-- **报告尸体**：发现尸体可直接报告触发讨论
+### Movement System
+- 4 action steps per round
+- Click rooms on the map to move
+- Can only move to adjacent rooms
 
-### 紧急会议
-- 每名玩家拥有2次发起机会
-- 仅在**飞船大厅**可发起
-- 发起后进入讨论和投票阶段
+### Task System (Crewmates)
+Crewmates need to complete 3 regular tasks:
 
-### 投票系统
-- 所有存活玩家轮流投票
-- 得票最多者被流放
-- 平票则无人被流放
+| Task Name | Location | Difficulty |
+|:----------:|:--------:|:----------:|
+| Fix Wires | Electrical | ★ |
+| Clean Filter | Oxygen | ★ |
+| Body Scan | Medbay | ★★ |
+| Download Data | Communications | ★★ |
+| Calibrate Engines | Engine | ★★ |
+| Repair Reactor | Reactor | ★★★ |
+| Fuel Engines | Fuel | ★★ |
+| Start Satellite | Security | ★★★ |
+| Submit Code | Admin | ★★★ |
 
-### 旁观模式
-- 玩家死亡后进入旁观模式
-- 可切换视角查看任意房间
-- 尸体位置固定显示
+### Bomb System (Impostors) - Added in v1.1.0
 
-## 冷却机制
+**Place Bomb:**
+- Impostors can place bombs in any room
+- Consumes 1 action step
+- Placement cooldown: 5 rounds (150 seconds in multiplayer)
+- Bomb countdown: 3 minutes in single player (independent real-time timing); 60 seconds in multiplayer
 
-| 技能 | 冷却时间 | 说明 |
-|:----:|:--------:|:----:|
-| 击杀 | 3回合 | 内鬼击杀船员 |
-| 穿梭 | 3回合 | 内鬼传送至任意房间 |
-| 监控 | 2回合 | 查看监控后对所有玩家生效 |
-| 第一回合 | 禁用 | 内鬼禁止击杀和穿梭 |
+**Bomb Explosion Effects:**
+- Kills all crewmates in the room where bomb explodes (impostors unaffected)
+- Explodes in Oxygen → Triggers oxygen repair task
+- Explodes in Security → Triggers security camera repair task
+- Explodes in Spaceship Hall → Disables emergency meeting for 2 rounds
 
-## 飞船地图
+**Defuse Bomb Task:**
+- Crewmates can defuse bombs when in a room with a bomb
+- Cut 4 wires in correct order
+- 30-second countdown, explosion on wrong cut or timeout
+
+### Ruin Cleaning System - Added in v1.2.0
+
+**Ruin Generation:**
+- Bomb explosions cause the room to become ruined
+- Ruined rooms cannot execute normal tasks
+- 🏚️ marker displayed on map
+
+**Clean Ruins:**
+- Crewmates must click "Clean Ruins" button in ruined rooms
+- Drag debris into trash can to complete cleaning
+- Room functions restored after cleaning
+- Cannot initiate emergency meeting when Spaceship Hall is ruined
+
+### Sabotage System (Impostors)
+Impostors can sabotage the following systems:
+
+**Oxygen System:**
+- After sabotage, crewmates receive temporary repair task
+- Crew must repair within the time limit, failure means impostor victory
+
+**Security Cameras:**
+- After sabotage, requires task completion to restore
+- After viewing cameras, all players enter cooldown
+
+**Sabotage Cooldown:** - Added in v1.2.0
+- 2-round cooldown in single player, 90 seconds in multiplayer
+- Cannot sabotage again during cooldown
+
+### Security Cameras Room
+- Only available in Security
+- Shows player and body counts for all rooms
+- Rooms with bombs marked with red bold border
+- **Complete View**: Sets cooldown for all alive players
+- **Report Body**: Can directly report bodies to trigger discussion
+
+### Emergency Meeting
+- Each player has 2 chances to initiate
+- Only available in **Spaceship Hall**
+- Initiating enters discussion and voting phase
+- Disabled for 2 rounds when Spaceship Hall is ruined or bomb explodes
+
+### Voting System
+- All alive players vote in turn
+- Player with most votes is exiled
+- Tie means no one is exiled
+
+### Spectator Mode
+- Players enter spectator mode after death
+- Can switch perspective to view any room
+- Body positions fixed and displayed
+
+### LAN Multiplayer - Added in v2.0.0
+
+**Room System:**
+- The host listens on port `8888`; clients join by entering the host's IP
+- Custom player names supported; duplicates are auto-renamed (e.g. `Player2(1)`)
+- Player count and player list are shown in real time
+
+**Role Assignment:**
+- Assigned randomly by the host and distributed to every client
+- Each client only sees its own role to avoid identity leaks
+
+**Position Synchronization:**
+- The host runs a `12346` sync server inside the game process
+- Full room state (positions, alive status, task progress, sabotage, bombs, bodies) is broadcast every 500ms
+- Position updates are relayed to other players but never echoed back to the sender
+
+**Detached Processes:**
+- Game windows are independent of the lobby; closing the lobby does not affect the game
+- Each client writes its own log: `game_host_*.log`, `game_client_*.log`
+- Exceptions and crashes are recorded in `crash_<pid>.log`
+
+**Multiplayer Cooldowns:**
+- Single player keeps round-based cooldowns; multiplayer uses second-based real-time cooldowns
+- See the "Cooldown Mechanism" table below
+
+## Cooldown Mechanism
+
+| Skill | Single (rounds) | Multiplayer (seconds) | Description |
+|:-----:|:---------------:|:---------------------:|:------------|
+| Kill | 3 | 45 | Impostor kills crewmate |
+| Shuttle | 3 | 60 | Impostor teleports to any room |
+| Monitor | 2 | 45 | Effective for all players after viewing monitor |
+| Bomb | 5 | 150 | Impostor places bomb |
+| Sabotage | 2 | 90 | Impostor sabotages systems |
+| Bomb fuse | 180s | 60s | Time from placement to explosion |
+| Round 1 | Disabled | Disabled | Impostors prohibited from killing and shuttling |
+
+## Spaceship Map
 
 ```
-                    上升引擎室
+                    Upper Engine
                          |
-  下降引擎室 —— 医疗室 —— 反应堆
+  Lower Engine -- Medbay -- Reactor
        |                        |
-  电力室 ———— 燃料室 ———— 飞船大厅 ———— 氧气室
-                     |    |           |
-                  主控室   |        监控室
-                            |           |
-                         通讯室 ——— 监控室
+  Electrical -- Fuel -- Spaceship Hall -- Oxygen
+                   |  |                  |
+                 Admin |              Security
+                       |                  |
+                Communications -------------
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 Among-us-main-basic-tkinter-/
-├── main_gui.py      # 主界面逻辑，GUI核心
-├── game.py          # 游戏逻辑类
-├── player.py        # 玩家类定义
-├── roles.py         # 角色类定义（船员/内鬼）
-├── map.py           # 游戏地图定义
-├── tasks.py         # 任务系统定义
-├── haikediannao.py  # 备用任务界面
-├── build/           # 打包构建目录
-└── dist/            # 打包输出目录
+├── multiplayer.py   # v2.0.0 entry: mode lobby, room server, role assignment
+├── main_gui.py      # Main game interface, position sync, graphical tasks
+├── game.py          # Game logic class
+├── player.py        # Player class definition
+├── roles.py         # Role class definition (Crewmate/Impostor)
+├── map.py           # Game map definition
+├── tasks.py         # Task system definition (13 graphical tasks)
+├── room_state.py    # Multiplayer room state container
+├── crewmate_entry.py / impostor_entry.py  # Role entry scripts
+├── haikediannao.py  # Morse code mini-game
+├── tests/           # Headless multiplayer protocol self-test
+├── build/           # Build directory
+└── dist/            # Distribution output directory
 ```
 
-## 技术栈
+## Tech Stack
 
-- **语言**：Python 3.11
-- **GUI框架**：Tkinter
-- **打包工具**：PyInstaller
+- **Language**: Python 3.11
+- **GUI Framework**: Tkinter
+- **Networking**: TCP socket + JSON line-delimited protocol (ports 8888 / 12346)
+- **Packaging Tool**: PyInstaller
 
-## 运行方式
+## How to Run
 
-### 开发模式
+### Development Mode
 ```bash
-python main_gui.py
+python multiplayer.py
 ```
+Choose from the mode selection screen: Single Player / Create Room / Join Room.
 
-### 打包执行
-项目已使用PyInstaller打包，可直接运行：
-```bash
-./dist/太空狼人杀.exe
-```
+### LAN Multiplayer
+1. The host selects "Create Room" and notes the LAN IP shown
+2. Other players select "Join Room", enter that IP and their name
+3. Once enough players have joined, the host clicks "Start Game"
 
-## 游戏流程
+> Note: both ends must be on the same LAN, with TCP ports `8888` and `12346` allowed.
 
-1. **选择玩家数量**（4-10人）
-2. **查看角色信息**（每位玩家依次查看）
-3. **游戏开始**：
-   - 回合制行动（移动、完成任务、击杀等）
-   - 可发起紧急会议
-   - 讨论和投票阶段
-4. **游戏结束**：显示胜利方和最终身份揭示
+### Packaged Execution
+A PyInstaller-packaged exe will be provided with the release.
 
-## 开发说明
+## Game Flow
 
-本游戏由三位中国初中生利用课余时间开发，设计灵感来源于Among Us原作。游戏在原版基础上进行了简化和创新，增加了如监控室、穿梭功能等多种特色玩法。
+**Single Player:**
+1. Select player count (4-10 players)
+2. View role info (each player views in turn)
+3. Turn-based actions (move, complete tasks, kill, etc.)
+4. Game ends: victory side and final identity reveal
 
-### 主要特性
-- 完整的图形化任务界面
-- 多种冷却和限制机制
-- 旁观者模式
-- 尸体报告和投票系统
-- 氧气紧急破坏机制
+**Multiplayer:**
+1. Create/join a room and wait for players
+2. The host starts; each client opens its own game window
+3. Real-time actions with position synchronization
+4. Game ends: results synced across all clients
+
+## Development Notes
+
+This game was developed by three Chinese middle school students during their spare time, with design inspiration from Among Us. The game has been simplified and innovated based on the original version, adding various special features such as security cameras, shuttle function, bomb system, and ruin cleaning.
+
+### Main Features
+- Complete graphical task interfaces
+- Deep blue tech-style UI design
+- Multiple cooldown and restriction mechanisms
+- Spectator mode
+- Body report and voting systems
+- Oxygen emergency sabotage mechanism
+- Bomb system and defuse tasks
+- Ruin cleaning system
+- LAN multiplayer with real-time position sync (v2.0.0)
+
+## Version History
+
+| Version | Update Content |
+|:--------:|:--------------|
+| v1.0.0 | Initial version, basic game features |
+| v1.1.0 | Bomb system, defuse task, security camera bomb markers |
+| v1.1.7 | Download data task optimization, fan click detection optimization |
+| v1.2.0 | Ruin cleaning system, sabotage cooldown, interface optimization |
+| v2.0.0 | LAN multiplayer, position sync, detached processes, multiplayer cooldown balance, multiple crash fixes |
