@@ -3,13 +3,15 @@
 > A turn-based strategy deduction game inspired by Among Us, built with Python Tkinter.
 > Supports single-device play (4-10 players) and **LAN multiplayer** (4-10 players).
 
+[![English](https://img.shields.io/badge/README-English-blue.svg)](README.md)
+[![简体中文](https://img.shields.io/badge/README-简体中文-red.svg)](README.zh-CN.md)
+
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Tkinter](https://img.shields.io/badge/GUI-Tkinter-green.svg)](https://docs.python.org/3/library/tkinter.html)
 [![License](https://img.shields.io/badge/License-LGPL--2.1-yellow.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/Version-v2.0.0-brightgreen.svg)]()
 
 ---
-
 
 A Space Werewolf tabletop game developed with Python Tkinter, supporting single-device play (4-10 players) and LAN multiplayer (4-10 players).
 
@@ -110,174 +112,45 @@ Crewmates need to complete 3 regular tasks:
 - Room functions restored after cleaning
 - Cannot initiate emergency meeting when Spaceship Hall is ruined
 
-### Sabotage System (Impostors)
-Impostors can sabotage the following systems:
+## Multiplayer Features - Added in v2.0.0
 
-**Oxygen System:**
-- After sabotage, crewmates receive temporary repair task
-- Crew must repair within the time limit, failure means impostor victory
+### Connection Protocol
+- TCP-based room lobby system
+- Host displays local LAN IP for other players to connect
+- Automatic player sync and state broadcast
 
-**Security Cameras:**
-- After sabotage, requires task completion to restore
-- After viewing cameras, all players enter cooldown
+### Game Synchronization
+- Real-time task completion sync across all players
+- Vote results and elimination sync
+- Bomb placement and explosion sync
+- Movement tracking for all players
 
-**Sabotage Cooldown:** - Added in v1.2.0
-- 2-round cooldown in single player, 90 seconds in multiplayer
-- Cannot sabotage again during cooldown
+## Installation & Running
 
-### Security Cameras Room
-- Only available in Security
-- Shows player and body counts for all rooms
-- Rooms with bombs marked with red bold border
-- **Complete View**: Sets cooldown for all alive players
-- **Report Body**: Can directly report bodies to trigger discussion
+### Prerequisites
+- Python 3.11 or higher
+- Tkinter (usually included with Python)
 
-### Emergency Meeting
-- Each player has 2 chances to initiate
-- Only available in **Spaceship Hall**
-- Initiating enters discussion and voting phase
-- Disabled for 2 rounds when Spaceship Hall is ruined or bomb explodes
+### Running the Game
 
-### Voting System
-- All alive players vote in turn
-- Player with most votes is exiled
-- Tie means no one is exiled
-
-### Spectator Mode
-- Players enter spectator mode after death
-- Can switch perspective to view any room
-- Body positions fixed and displayed
-
-### LAN Multiplayer - Added in v2.0.0
-
-**Room System:**
-- The host listens on port `8888`; clients join by entering the host's IP
-- Custom player names supported; duplicates are auto-renamed (e.g. `Player2(1)`)
-- Player count and player list are shown in real time
-
-**Role Assignment:**
-- Assigned randomly by the host and distributed to every client
-- Each client only sees its own role to avoid identity leaks
-
-**Position Synchronization:**
-- The host runs a `12346` sync server inside the game process
-- Full room state (positions, alive status, task progress, sabotage, bombs, bodies) is broadcast every 500ms
-- Position updates are relayed to other players but never echoed back to the sender
-
-**Detached Processes:**
-- Game windows are independent of the lobby; closing the lobby does not affect the game
-- Each client writes its own log: `game_host_*.log`, `game_client_*.log`
-- Exceptions and crashes are recorded in `crash_<pid>.log`
-
-**Multiplayer Cooldowns:**
-- Single player keeps round-based cooldowns; multiplayer uses second-based real-time cooldowns
-- See the "Cooldown Mechanism" table below
-
-## Cooldown Mechanism
-
-| Skill | Single (rounds) | Multiplayer (seconds) | Description |
-|:-----:|:---------------:|:---------------------:|:------------|
-| Kill | 3 | 45 | Impostor kills crewmate |
-| Shuttle | 3 | 60 | Impostor teleports to any room |
-| Monitor | 2 | 45 | Effective for all players after viewing monitor |
-| Bomb | 5 | 150 | Impostor places bomb |
-| Sabotage | 2 | 90 | Impostor sabotages systems |
-| Bomb fuse | 180s | 60s | Time from placement to explosion |
-| Round 1 | Disabled | Disabled | Impostors prohibited from killing and shuttling |
-
-## Spaceship Map
-
-```
-                    Upper Engine
-                         |
-  Lower Engine -- Medbay -- Reactor
-       |                        |
-  Electrical -- Fuel -- Spaceship Hall -- Oxygen
-                   |  |                  |
-                 Admin |              Security
-                       |                  |
-                Communications -------------
-```
-
-## Project Structure
-
-```
-Among-us-main-basic-tkinter-/
-├── multiplayer.py   # v2.0.0 entry: mode lobby, room server, role assignment
-├── main_gui.py      # Main game interface, position sync, graphical tasks
-├── game.py          # Game logic class
-├── player.py        # Player class definition
-├── roles.py         # Role class definition (Crewmate/Impostor)
-├── map.py           # Game map definition
-├── tasks.py         # Task system definition (13 graphical tasks)
-├── room_state.py    # Multiplayer room state container
-├── crewmate_entry.py / impostor_entry.py  # Role entry scripts
-├── haikediannao.py  # Morse code mini-game
-├── tests/           # Headless multiplayer protocol self-test
-├── build/           # Build directory
-└── dist/            # Distribution output directory
-```
-
-## Tech Stack
-
-- **Language**: Python 3.11
-- **GUI Framework**: Tkinter
-- **Networking**: TCP socket + JSON line-delimited protocol (ports 8888 / 12346)
-- **Packaging Tool**: PyInstaller
-
-## How to Run
-
-### Development Mode
+**Single Player Mode:**
 ```bash
-python multiplayer.py
+python main_gui.py
 ```
-Choose from the mode selection screen: Single Player / Create Room / Join Room.
 
-### LAN Multiplayer
-1. The host selects "Create Room" and notes the LAN IP shown
-2. Other players select "Join Room", enter that IP and their name
-3. Once enough players have joined, the host clicks "Start Game"
+**Multiplayer Mode:**
+```bash
+# Host (Create Room)
+python impostor_entry.py  # or crewmate_entry.py
 
-> Note: both ends must be on the same LAN, with TCP ports `8888` and `12346` allowed.
+# Client (Join Room)
+python impostor_entry.py  # or crewmate_entry.py
+```
 
-### Packaged Execution
-A PyInstaller-packaged exe will be provided with the release.
+## License
 
-## Game Flow
+This project is licensed under LGPL-2.1 License.
 
-**Single Player:**
-1. Select player count (4-10 players)
-2. View role info (each player views in turn)
-3. Turn-based actions (move, complete tasks, kill, etc.)
-4. Game ends: victory side and final identity reveal
+---
 
-**Multiplayer:**
-1. Create/join a room and wait for players
-2. The host starts; each client opens its own game window
-3. Real-time actions with position synchronization
-4. Game ends: results synced across all clients
-
-## Development Notes
-
-This game was developed by three Chinese middle school students during their spare time, with design inspiration from Among Us. The game has been simplified and innovated based on the original version, adding various special features such as security cameras, shuttle function, bomb system, and ruin cleaning.
-
-### Main Features
-- Complete graphical task interfaces
-- Deep blue tech-style UI design
-- Multiple cooldown and restriction mechanisms
-- Spectator mode
-- Body report and voting systems
-- Oxygen emergency sabotage mechanism
-- Bomb system and defuse tasks
-- Ruin cleaning system
-- LAN multiplayer with real-time position sync (v2.0.0)
-
-## Version History
-
-| Version | Update Content |
-|:--------:|:--------------|
-| v1.0.0 | Initial version, basic game features |
-| v1.1.0 | Bomb system, defuse task, security camera bomb markers |
-| v1.1.7 | Download data task optimization, fan click detection optimization |
-| v1.2.0 | Ruin cleaning system, sabotage cooldown, interface optimization |
-| v2.0.0 | LAN multiplayer, position sync, detached processes, multiplayer cooldown balance, multiple crash fixes |
+*[回到首页](README.md) | [Back to Home](README.md)*
