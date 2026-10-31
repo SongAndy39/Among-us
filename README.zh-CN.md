@@ -3,7 +3,7 @@
 > 基于 Python Tkinter 开发的回合制策略推理游戏，灵感来源于经典游戏 Among Us。
 > 支持单机同屏（4-10 人）与**局域网联机**（4-10 人）对战。
 
-[![English](https://img.shields.io/badge/README-English-blue.svg)](README.md)
+[![English](https://img.shields.io/badge/README-English-blue.svg)](README.en.md)
 [![简体中文](https://img.shields.io/badge/README-简体中文-red.svg)](README.zh-CN.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)

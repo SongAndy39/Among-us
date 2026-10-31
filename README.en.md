@@ -3,7 +3,7 @@
 > A turn-based strategy deduction game inspired by Among Us, built with Python Tkinter.
 > Supports single-device play (4-10 players) and **LAN multiplayer** (4-10 players).
 
-[![English](https://img.shields.io/badge/README-English-blue.svg)](README.md)
+[![English](https://img.shields.io/badge/README-English-blue.svg)](README.en.md)
 [![简体中文](https://img.shields.io/badge/README-简体中文-red.svg)](README.zh-CN.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
@@ -153,4 +153,4 @@ This project is licensed under LGPL-2.1 License.
 
 ---
 
-*[回到首页](README.md) | [Back to Home](README.md)*
+*[Back to Home](README.en.md) | [回到首页](README.zh-CN.md)*
