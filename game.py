@@ -12,6 +12,8 @@ from player import Player
 from roles import Role, Crewmate, Impostor
 from tasks import TaskGenerator
 from map import GameMap
+from game_config import CREWMATE_TASK_GOAL
+from game_rules import evaluate_game_outcome
 
 
 class Game:
@@ -57,8 +59,7 @@ class Game:
         
         # 分配船员角色
         for i in range(self.num_impostors, len(shuffled_players)):
-            # 船员的任务数量根据玩家总数调整
-            num_tasks = max(3, 8 - len(self.players))
+            num_tasks = CREWMATE_TASK_GOAL
             crewmate = Crewmate(num_tasks=num_tasks)
             shuffled_players[i].assign_role(crewmate)
             # 为船员分配具体任务（确保任务实例独立）
@@ -75,51 +76,14 @@ class Game:
     
     def check_game_over(self) -> bool:
         """检查游戏是否结束（核心修复：任务完成判断逻辑）"""
-        # 统计存活的船员和内鬼数量
-        alive_crewmates = sum(1 for p in self.players 
-                            if p.is_alive and isinstance(p.role, Crewmate))
-        alive_impostors = sum(1 for p in self.players 
-                            if p.is_alive and isinstance(p.role, Impostor))
-        
-        # 检查船员是否完成所有任务（修复：兼容图形化任务的完成状态）
-        all_tasks_completed = True
-        for player in self.players:
-            if not (isinstance(player.role, Crewmate) and player.is_alive):
-                continue  # 只检查存活的船员
-            
-            # 双重判断：任务完成数 OR 任务列表状态（兼容图形化任务）
-            task_list_completed = True
-            if hasattr(player, 'tasks') and player.tasks:
-                task_list_completed = all(task.is_completed for task in player.tasks)
-            
-            task_count_completed = player.completed_tasks >= player.role.num_tasks
-            
-            # 任一条件不满足则未完成
-            if not (task_list_completed or task_count_completed):
-                all_tasks_completed = False
-                break
-        
         # 判断游戏结束条件（增加边界判断）
         self.game_over = False
         self.winner = None
-        
-        # 是否已有玩家出局（防止2人开局1v1时内鬼直接获胜）
-        any_player_out = any(not p.is_alive for p in self.players)
-        
-        if alive_crewmates <= 0:
-            # 无存活船员，内鬼胜利
+
+        winner, _reason = evaluate_game_outcome(self)
+        if winner:
             self.game_over = True
-            self.winner = "impostor"
-        elif alive_impostors == 0:
-            self.game_over = True
-            self.winner = "crewmate"
-        elif alive_impostors >= alive_crewmates and any_player_out:
-            # 内鬼数量与船员数量相等（且已有人出局），内鬼胜利
-            self.game_over = True
-            self.winner = "impostor"
-        elif all_tasks_completed and alive_crewmates > 0:
-            self.game_over = True
-            self.winner = "crewmate"
+            self.winner = winner
         
         return self.game_over
     

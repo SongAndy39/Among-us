@@ -553,6 +553,88 @@ def scenario_client_dispatch():
 # ============================ C. 12346 位置同步 ============================
 
 
+def scenario_shared_config():
+    """验证配置常量与共享状态副本没有偏离。"""
+    from game import Game
+    from game_config import CREWMATE_TASK_GOAL, SYNC_PORT
+    from room_state import RoomState
+
+    print("\n=== G. 共享配置与任务状态 ===")
+
+    check("G1 同步端口仍为 12346",
+          SYNC_PORT == 12346,
+          f"实际={SYNC_PORT}")
+    check("G1 船员任务目标统一为 3",
+          CREWMATE_TASK_GOAL == 3,
+          f"实际={CREWMATE_TASK_GOAL}")
+
+    game = Game(["玩家1", "玩家2", "玩家3", "玩家4"], num_impostors=1)
+    game.initialize_players()
+    game.assign_roles()
+    crewmates = [player for player in game.players if player.get_role_name() == "Crewmate"]
+    check("G2 所有船员使用统一任务目标",
+          bool(crewmates)
+          and all(player.role.num_tasks == CREWMATE_TASK_GOAL for player in crewmates),
+          f"任务目标={[player.role.num_tasks for player in crewmates]!r}")
+
+    state = RoomState(is_host=True)
+    state.add_player("玩家1", "Crewmate")
+    state.set_task_progress("玩家1", 2)
+    check("G3 任务进度同时更新共享玩家数据",
+          state.tasks_completed["玩家1"] == 2
+          and state.players["玩家1"]["tasks_completed"] == 2,
+          f"实际 tasks_completed={state.tasks_completed!r}, "
+          f"players={state.players!r}")
+
+    from network_protocol import decode_line, encode_line, validate_sync_message
+
+    valid = {"type": "position_update", "player_name": "玩家1", "location": "监控室"}
+    invalid_missing_field = {"type": "position_update", "player_name": "玩家1"}
+    invalid_type = {"type": "unknown", "winner": "crewmate"}
+    check("G4 同步协议接受完整消息",
+          validate_sync_message(valid),
+          f"实际={valid!r}")
+    check("G4 同步协议拒绝缺字段消息",
+          not validate_sync_message(invalid_missing_field),
+          f"实际={invalid_missing_field!r}")
+    check("G4 同步协议拒绝未知消息",
+          not validate_sync_message(invalid_type),
+          f"实际={invalid_type!r}")
+    check("G5 JSON 换行帧可往返",
+          decode_line(encode_line(valid).decode("utf-8").strip()) == valid)
+
+    state.set_task_progress("玩家1", 999)
+    check("G6 任务进度上限不会超出目标",
+          state.tasks_completed["玩家1"] == CREWMATE_TASK_GOAL,
+          f"实际={state.tasks_completed['玩家1']}")
+    state.set_game_over("unknown")
+    check("G7 非法胜者会被规范为 unknown",
+          state.winner == "unknown",
+          f"实际={state.winner!r}")
+
+    from game_rules import evaluate_game_outcome
+
+    winner_game = Game(["玩家1", "玩家2", "玩家3", "玩家4"], num_impostors=1)
+    winner_game.initialize_players()
+    winner_game.assign_roles()
+    for player in winner_game.players:
+        if player.get_role_name() == "Crewmate":
+            player.completed_tasks = CREWMATE_TASK_GOAL
+    check("G8 全船员完成任务时返回船员胜利",
+          evaluate_game_outcome(winner_game) == ("crewmate", "all_tasks_completed"),
+          f"实际={evaluate_game_outcome(winner_game)!r}")
+
+    winner_game = Game(["玩家1", "玩家2", "玩家3", "玩家4"], num_impostors=1)
+    winner_game.initialize_players()
+    winner_game.assign_roles()
+    for player in winner_game.players:
+        if player.get_role_name() == "Crewmate":
+            player.is_alive = False
+    check("G9 无存活船员时返回内鬼胜利",
+          evaluate_game_outcome(winner_game) == ("impostor", "no_crewmates"),
+          f"实际={evaluate_game_outcome(winner_game)!r}")
+
+
 def import_main_gui():
     """main_gui 在 import 时会 parse_args()，必须先把 argv 清干净。
 
@@ -689,7 +771,7 @@ def main():
     # 每个场景独立端口、独立桩对象，互不污染
     for fn in (scenario_room_protocol, scenario_duplicate_name,
                scenario_client_launch_args, scenario_bad_input_and_disconnect,
-               scenario_client_dispatch, scenario_sync_protocol):
+               scenario_client_dispatch, scenario_shared_config, scenario_sync_protocol):
         try:
             fn()
         except Exception:

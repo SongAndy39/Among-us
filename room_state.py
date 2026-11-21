@@ -2,6 +2,7 @@ import json
 import time
 import threading
 from typing import Dict, List, Any, Optional
+from game_config import CREWMATE_TASK_GOAL, OXYGEN_TIMEOUT_SECONDS
 
 class RoomState:
     """房间状态管理类 - 用于联机模式下的状态同步"""
@@ -20,7 +21,7 @@ class RoomState:
         
         # 任务状态
         self.tasks_completed: Dict[str, int] = {}  # {player_name: task_count}
-        self.total_tasks_required = 3
+        self.total_tasks_required = CREWMATE_TASK_GOAL
         
         # 事件记录
         self.events: List[Dict[str, Any]] = []  # [{type, player_name, target_name, location, timestamp}, ...]
@@ -117,6 +118,19 @@ class RoomState:
                 self.tasks_completed[player_name] += 1
                 self.players[player_name]['tasks_completed'] = self.tasks_completed[player_name]
                 self.last_update = time.time()
+
+    def set_task_progress(self, player_name: str, completed_tasks: int):
+        """设置任务进度，并保持玩家数据中的副本同步"""
+        with self.lock:
+            if player_name in self.players:
+                try:
+                    completed_tasks = int(completed_tasks)
+                except (TypeError, ValueError):
+                    return
+                completed_tasks = min(CREWMATE_TASK_GOAL, max(0, completed_tasks))
+                self.tasks_completed[player_name] = completed_tasks
+                self.players[player_name]['tasks_completed'] = completed_tasks
+                self.last_update = time.time()
     
     def set_sabotage(self, system: str, value: bool):
         """设置系统破坏状态"""
@@ -124,7 +138,7 @@ class RoomState:
             if system == 'oxygen':
                 self.oxygen_sabotaged = value
                 if value:
-                    self.oxygen_timeout = time.time() + 150  # 150秒后氧气耗尽
+                    self.oxygen_timeout = time.time() + OXYGEN_TIMEOUT_SECONDS
                 else:
                     self.oxygen_timeout = None
             elif system == 'monitor':
@@ -144,6 +158,8 @@ class RoomState:
     def set_game_over(self, winner: str):
         """设置游戏结束和获胜者"""
         with self.lock:
+            if winner not in ("crewmate", "impostor"):
+                winner = "unknown"
             self.game_over = True
             self.winner = winner
             self.last_update = time.time()
@@ -184,7 +200,10 @@ class RoomState:
             self.game_over = data.get('game_over', False)
             self.winner = data.get('winner')
             self.tasks_completed = data.get('tasks_completed', {})
-            self.total_tasks_required = data.get('total_tasks_required', 3)
+            self.total_tasks_required = data.get(
+                'total_tasks_required',
+                CREWMATE_TASK_GOAL
+            )
             self.events = data.get('events', [])
             self.bomb_location = data.get('bomb_location')
             self.bomb_explode_time = data.get('bomb_explode_time')

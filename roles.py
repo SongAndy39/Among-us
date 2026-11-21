@@ -6,6 +6,14 @@
 import time
 from abc import ABC, abstractmethod
 from typing import Optional, TYPE_CHECKING
+from game_config import (
+    BOMB_COOLDOWN_SECONDS,
+    BOMB_EXPLODE_SECONDS,
+    KILL_COOLDOWN_SECONDS,
+    MONITOR_COOLDOWN_SECONDS,
+    SABOTAGE_COOLDOWN_SECONDS,
+    SHUTTLE_COOLDOWN_SECONDS,
+)
 
 # 使用TYPE_CHECKING避免循环导入
 if TYPE_CHECKING:
@@ -19,7 +27,7 @@ class Role(ABC):
         # 使用字符串类型注解避免运行时导入错误
         self.player: Optional['Player'] = None
         # 监控冷却（联机模式实时冷却）：约0.45个任务周期，补偿船员应对击杀
-        self.monitor_cooldown_seconds = 45
+        self.monitor_cooldown_seconds = MONITOR_COOLDOWN_SECONDS
         self.current_monitor_cooldown_seconds = 0
     
     def update_cooldowns_real_time(self):
@@ -84,14 +92,14 @@ class Impostor(Role):
         
         # 联机模式使用实时计时（秒）
         # 平衡基准：每名船员完成 1星+2星+3星 任务+跑图的全周期 T≈100 秒
-        self.kill_cooldown_seconds = 45  # 击杀：约0.45T，每个任务周期约2次击杀窗口
+        self.kill_cooldown_seconds = KILL_COOLDOWN_SECONDS
         self.current_kill_cooldown_seconds = 0  # 初始为0，开局后设置为冷却时间
-        self.shuttle_cooldown_seconds = 60  # 穿梭：约0.6T
+        self.shuttle_cooldown_seconds = SHUTTLE_COOLDOWN_SECONDS
         self.current_shuttle_cooldown_seconds = 0  # 初始为0，开局后设置为冷却时间
-        self.bomb_cooldown_seconds = 150  # 炸弹：约1.5T
+        self.bomb_cooldown_seconds = BOMB_COOLDOWN_SECONDS
         self.current_bomb_cooldown_seconds = 0  # 初始为0，开局后设置为冷却时间
-        self.bomb_explode_time_seconds = 60  # 炸弹引爆时间1分钟（拆弹任务约10-30秒）
-        self.sabotage_cooldown_seconds = 90  # 破坏：约0.9T（修复氧气需分流30-50秒）
+        self.bomb_explode_time_seconds = BOMB_EXPLODE_SECONDS
+        self.sabotage_cooldown_seconds = SABOTAGE_COOLDOWN_SECONDS
         self.current_sabotage_cooldown_seconds = 0  # 初始为0
     
     def set_kill_cooldown(self, cooldown: int):

@@ -9,6 +9,8 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog
 import time
 from room_state import RoomState
+from game_config import BOMB_EXPLODE_SECONDS, LOBBY_PORT, SYNC_PORT
+from network_protocol import decode_line, safe_send, validate_sync_message
 
 # ========== 控制台编码兜底 ==========
 # Windows 中文环境的 stdout 默认是 GBK，而本文件里有大量 ✓ ✗ 等非 GBK 字符的
@@ -132,7 +134,7 @@ class MultiplayerMenu:
         self.client_socket = None
         self.is_server = False
         self.is_client = False
-        self.server_port = 8888
+        self.server_port = LOBBY_PORT
         self.player_count = 0
         self.min_players = 4
         self.max_players = 10
@@ -889,7 +891,7 @@ class MultiplayerMenu:
             player_names = message.get('player_names', [])
             my_role = message.get('my_role', None)
             my_name = message.get('my_name', None)
-            sync_port = message.get('sync_port', 12346)
+            sync_port = message.get('sync_port', SYNC_PORT)
             room_state_data = message.get('room_state', None)
 
             # 如果已经收到服务器确认的名字，使用确认的名字；否则使用服务器发送的名字
@@ -966,7 +968,7 @@ class MultiplayerMenu:
                     'player_names': self.player_names,
                     'my_role': player_role,
                     'my_name': player_name,
-                    'sync_port': 12346,
+                    'sync_port': SYNC_PORT,
                     'room_state': self.room_state.to_dict()
                 })
                 client['socket'].send((message + '\n').encode('utf-8'))
@@ -1112,7 +1114,7 @@ class MultiplayerMenu:
             sync_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             
             # 使用一个固定的端口进行同步
-            sync_port = 12346
+            sync_port = SYNC_PORT
             try:
                 sync_socket.bind(('0.0.0.0', sync_port))
                 sync_socket.listen(5)
@@ -1186,11 +1188,13 @@ class MultiplayerMenu:
                 buffer += data
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
-                    try:
-                        message = json.loads(line)
-                        self.process_sync_message(message, client_socket)
-                    except json.JSONDecodeError:
+                    message = decode_line(line)
+                    if message is None:
                         print(f"无效的JSON消息: {line}")
+                    elif validate_sync_message(message):
+                        self.process_sync_message(message, client_socket)
+                    else:
+                        print(f"非法同步消息类型或字段缺失: {message}")
         except Exception as e:
             print(f"同步客户端处理错误: {e}")
         finally:
@@ -1263,7 +1267,7 @@ class MultiplayerMenu:
                 if explode_time:
                     self.room_state.bomb_explode_time = explode_time
                 else:
-                    self.room_state.bomb_explode_time = time.time() + 60
+                    self.room_state.bomb_explode_time = time.time() + BOMB_EXPLODE_SECONDS
             
             # 转发给所有其他同步客户端
             for sync_client in self.sync_clients:
@@ -1295,7 +1299,7 @@ class MultiplayerMenu:
             # 更新房间状态
             if self.room_state and player_name:
                 if completed_tasks is not None:
-                    self.room_state.tasks_completed[player_name] = completed_tasks
+                    self.room_state.set_task_progress(player_name, completed_tasks)
                 else:
                     self.room_state.complete_task(player_name)
             
@@ -1354,7 +1358,7 @@ class MultiplayerMenu:
                     'player_names': self.player_names,
                     'my_role': player_role,
                     'my_name': player_name,
-                    'sync_port': 12346,
+                    'sync_port': SYNC_PORT,
                     'room_state': self.room_state.to_dict()  # 发送房间状态
                 })
                 client['socket'].send((message + '\n').encode('utf-8'))  # 添加换行符
@@ -1393,7 +1397,7 @@ class MultiplayerMenu:
                 f"--names_b64={base64.b64encode(json.dumps(list(self.player_names), ensure_ascii=False).encode('utf-8')).decode()}",
                 f"--my_role={self.my_role}",
                 f"--my_name={self.host_name}",
-                "--sync_port=12346",
+                f"--sync_port={SYNC_PORT}",
             ]), f"host_{self.host_name}")
         except Exception as e:
             print(f"启动游戏子进程失败: {e}", flush=True)

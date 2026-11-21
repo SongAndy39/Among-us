@@ -12,6 +12,13 @@ import argparse
 import base64
 import json
 from room_state import RoomState
+from network_protocol import decode_line, safe_send, validate_sync_message
+from game_config import (
+    BOMB_EXPLODE_SECONDS,
+    CREWMATE_TASK_GOAL,
+    OXYGEN_TIMEOUT_SECONDS,
+    SYNC_PORT,
+)
 
 # ========== 控制台编码兜底 ==========
 # Windows 中文环境下 stdout 为 GBK，日志/print 里的 emoji 与 ✓ 会抛
@@ -91,7 +98,7 @@ parser.add_argument('--names', type=str, default='', help='玩家名称列表(�
 parser.add_argument('--names_b64', type=str, default='', help='玩家名称列表(base64编码JSON，可安全含逗号/空格)')
 parser.add_argument('--my_role', type=str, default='', help='当前玩家的身份')
 parser.add_argument('--my_name', type=str, default='', help='当前玩家的名称')
-parser.add_argument('--sync_port', type=int, default=12346, help='位置同步端口')
+parser.add_argument('--sync_port', type=int, default=SYNC_PORT, help='位置同步端口')
 parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='服务器IP地址')
 args = parser.parse_args()
 
@@ -861,7 +868,7 @@ class AmongUsGUI:
         # 核心修改1：船员任务分配，确保难度均衡且不重复
         crewmates = [p for p in self.game.players if isinstance(p.role, Crewmate)]
         for player in crewmates:
-            player.role.num_tasks = 3
+            player.role.num_tasks = CREWMATE_TASK_GOAL
             player.completed_tasks = 0
             player.tasks = []
         
@@ -945,7 +952,7 @@ class AmongUsGUI:
         # 核心修改1：船员任务分配，确保难度均衡且不重复
         crewmates = [p for p in self.game.players if isinstance(p.role, Crewmate)]
         for player in crewmates:
-            player.role.num_tasks = 3
+            player.role.num_tasks = CREWMATE_TASK_GOAL
             player.completed_tasks = 0
             player.tasks = []
         
@@ -1044,7 +1051,7 @@ class AmongUsGUI:
             if isinstance(player.role, Crewmate):
                 task_label = tk.Label(
                     role_frame, 
-                    text=f"你需要完成 3 个常规任务", 
+                    text=f"你需要完成 {CREWMATE_TASK_GOAL} 个常规任务",
                     font=(self.font_family, int(14 * self.font_size_multiplier)),
                     fg="#4caf50",
                     bg="#16213e"
@@ -1194,7 +1201,7 @@ class AmongUsGUI:
                 if isinstance(player.role, Crewmate):
                     task_label = tk.Label(
                         role_frame, 
-                        text=f"你需要完成 3 个常规任务", 
+                        text=f"你需要完成 {CREWMATE_TASK_GOAL} 个常规任务",
                         font=(self.font_family, int(14 * self.font_size_multiplier)),
                         fg="#4caf50",
                         bg="#16213e"
@@ -1883,11 +1890,11 @@ class AmongUsGUI:
             self.oxygen_repaired = False
             self.oxygen_sabotage_round = self.global_round
             if hasattr(self, 'is_multiplayer') and self.is_multiplayer:
-                self.oxygen_timeout = time.time() + 150  # 联机模式：150秒倒计时
+                self.oxygen_timeout = time.time() + OXYGEN_TIMEOUT_SECONDS
                 # 更新房间状态
                 if self.room_state:
                     self.room_state.set_sabotage("oxygen", True)
-                self.add_log(f"⚠️ 氧气系统受损！船员需要在150秒内修复！")
+                self.add_log(f"⚠️ 氧气系统受损！船员需要在{OXYGEN_TIMEOUT_SECONDS}秒内修复！")
             else:
                 self.oxygen_remaining_rounds = 2
                 self.add_log(f"⚠️ 氧气系统受损！船员需要在2回合内修复！")
@@ -1975,12 +1982,12 @@ class AmongUsGUI:
                         self.oxygen_repaired = False
                         self.oxygen_sabotage_round = self.global_round
                         if hasattr(self, 'is_multiplayer') and self.is_multiplayer:
-                            self.oxygen_timeout = time.time() + 150  # 联机模式：150秒倒计时
+                            self.oxygen_timeout = time.time() + OXYGEN_TIMEOUT_SECONDS
                             # 更新房间状态
                             if self.room_state:
                                 self.room_state.set_sabotage("oxygen", True)
-                            self.add_log(f"⚠️ 氧气系统受损！船员需要在150秒内修复！")
-                            messagebox.showinfo("系统损坏", "💥 氧气系统受损！\n船员需要在150秒内修复！")
+                            self.add_log(f"⚠️ 氧气系统受损！船员需要在{OXYGEN_TIMEOUT_SECONDS}秒内修复！")
+                            messagebox.showinfo("系统损坏", f"💥 氧气系统受损！\n船员需要在{OXYGEN_TIMEOUT_SECONDS}秒内修复！")
                         else:
                             self.oxygen_remaining_rounds = 2
                             self.add_log(f"⚠️ 氧气系统受损！船员需要在2回合内修复！")
@@ -2286,7 +2293,7 @@ class AmongUsGUI:
         
         # 显示船员常规任务进度（死亡船员也显示）
         if isinstance(self.current_player.role, Crewmate):
-            progress = f"{self.current_player.completed_tasks}/3"
+            progress = f"{self.current_player.completed_tasks}/{CREWMATE_TASK_GOAL}"
             progress_label = tk.Label(
                 player_info_frame,
                 text=f"常规任务进度: {progress}",
@@ -3645,12 +3652,12 @@ class AmongUsGUI:
         
         try:
             if self.sync_socket:
-                message = json.dumps({
+                message = {
                     'type': 'position_update',
                     'player_name': player_name,
                     'location': location
-                })
-                self.sync_socket.send((message + '\n').encode('utf-8'))
+                }
+                safe_send(self.sync_socket, message)
                 print(f"📤 发送位置更新: {player_name} -> {location}")
         except Exception as e:
             print(f"❌ 发送位置更新失败: {e}")
@@ -3724,7 +3731,7 @@ class AmongUsGUI:
                     state_message = self.room_state.to_json()
                     for sync_client in self.sync_clients.copy():
                         try:
-                            sync_client['socket'].send((state_message + '\n').encode('utf-8'))
+                            safe_send(sync_client['socket'], self.room_state.to_dict())
                         except Exception:
                             # 移除失效的客户端
                             if sync_client in self.sync_clients:
@@ -3747,11 +3754,13 @@ class AmongUsGUI:
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     if line.strip():
-                        try:
-                            message = json.loads(line)
-                            self.handle_sync_server_message(message, client_socket)
-                        except json.JSONDecodeError:
+                        message = decode_line(line)
+                        if message is None:
                             print(f"无效的JSON同步消息: {line}")
+                        elif validate_sync_message(message) or message.get("type") == "room_state":
+                            self.handle_sync_server_message(message, client_socket)
+                        else:
+                            print(f"非法同步消息类型或字段缺失: {message}")
         except Exception as e:
             print(f"同步客户端处理错误: {e}")
         finally:
@@ -3788,7 +3797,9 @@ class AmongUsGUI:
             explode_time = message.get('explode_time')
             if self.room_state and location:
                 self.room_state.bomb_location = location
-                self.room_state.bomb_explode_time = explode_time if explode_time else time.time() + 60
+                self.room_state.bomb_explode_time = (
+                    explode_time if explode_time else time.time() + BOMB_EXPLODE_SECONDS
+                )
         elif msg_type == 'defuse_bomb':
             if self.room_state:
                 self.room_state.clear_bomb()
@@ -3797,7 +3808,7 @@ class AmongUsGUI:
             completed_tasks = message.get('completed_tasks', None)
             if self.room_state and player_name:
                 if completed_tasks is not None:
-                    self.room_state.tasks_completed[player_name] = completed_tasks
+                    self.room_state.set_task_progress(player_name, completed_tasks)
                 else:
                     self.room_state.complete_task(player_name)
         elif msg_type == 'game_over':
@@ -3908,7 +3919,7 @@ class AmongUsGUI:
                 if self.room_state and self.room_state.oxygen_timeout:
                     self.oxygen_timeout = self.room_state.oxygen_timeout
                 else:
-                    self.oxygen_timeout = time.time() + 150  # 默认150秒
+                    self.oxygen_timeout = time.time() + OXYGEN_TIMEOUT_SECONDS
                 # 向玩家显示通知
                 def show_oxygen_notice():
                     messagebox.showinfo(
@@ -3968,7 +3979,7 @@ class AmongUsGUI:
                 if explode_time:
                     self.room_state.bomb_explode_time = explode_time
                 else:
-                    self.room_state.bomb_explode_time = time.time() + 60
+                    self.room_state.bomb_explode_time = time.time() + BOMB_EXPLODE_SECONDS
             
             # 更新UI - 重建游戏界面以正确显示按钮状态
             self.root.after(0, self.create_game_frame)
@@ -4002,7 +4013,7 @@ class AmongUsGUI:
                 if player.name == player_name:
                     player.completed_tasks = completed_tasks
                     print(f"📥 同步任务完成信息: {player_name} 完成了 {completed_tasks} 个任务")
-                    self.add_log(f"📢 {player_name}完成了常规任务！当前进度：{completed_tasks}/3")
+                    self.add_log(f"📢 {player_name}完成了常规任务！当前进度：{completed_tasks}/{CREWMATE_TASK_GOAL}")
                     break
             
             # 更新任务列表显示
@@ -4146,7 +4157,7 @@ class AmongUsGUI:
                 
                 # 船员显示任务进度，内鬼显示身份
                 if isinstance(p.role, Crewmate):
-                    task_info = f"任务进度: {p.completed_tasks}/3"
+                    task_info = f"任务进度: {p.completed_tasks}/{CREWMATE_TASK_GOAL}"
                     self.task_listbox.insert(tk.END, f"{p.name}: {role_name} {status} | {task_info}")
                 else:
                     self.task_listbox.insert(tk.END, f"{p.name}: {role_name} {status}")
@@ -4173,7 +4184,7 @@ class AmongUsGUI:
         if hasattr(current_player, 'tasks') and current_player.tasks:
             task_count = 0
             for task in current_player.tasks:
-                if task_count >= 3:
+                if task_count >= CREWMATE_TASK_GOAL:
                     break
                 status = "✓" if task.is_completed else "✗"
                 difficulty_stars = "★" * getattr(task, 'difficulty', 1)
@@ -4453,10 +4464,10 @@ class AmongUsGUI:
             elif normal_task:
                 normal_task.is_completed = True
             
-            if player.completed_tasks < 3:
+            if player.completed_tasks < CREWMATE_TASK_GOAL:
                 player.completed_tasks += 1
             
-            self.add_log(f"✅ {player.name}完成了常规任务【{task_name}】！当前进度：{player.completed_tasks}/3")
+            self.add_log(f"✅ {player.name}完成了常规任务【{task_name}】！当前进度：{player.completed_tasks}/{CREWMATE_TASK_GOAL}")
             self.update_task_list()
             
             # 联机模式：同步任务完成信息给所有客户端
@@ -4468,13 +4479,13 @@ class AmongUsGUI:
                         "completed_tasks": player.completed_tasks
                     })
                     self.sync_socket.send((task_complete_msg + '\n').encode('utf-8'))
-                    print(f"✓ 已同步任务完成信息: {player.name} - {player.completed_tasks}/3")
+                    print(f"✓ 已同步任务完成信息: {player.name} - {player.completed_tasks}/{CREWMATE_TASK_GOAL}")
                 except Exception as e:
                     print(f"发送任务完成消息失败: {e}")
             
             # 检查是否所有常规任务完成
             all_tasks_completed = all(
-                p.completed_tasks >= 3 
+                p.completed_tasks >= CREWMATE_TASK_GOAL
                 for p in self.game.players 
                 if p.is_alive and isinstance(p.role, Crewmate)
             )
@@ -4514,7 +4525,7 @@ class AmongUsGUI:
                     except Exception as e:
                         print(f"关闭摩斯密码窗口失败: {e}")
             else:
-                progress = f"{player.completed_tasks}/3"
+                progress = f"{player.completed_tasks}/{CREWMATE_TASK_GOAL}"
                 messagebox.showinfo(
                     "任务完成", 
                     f"✅ 成功完成常规任务【{task_name}】！\n当前常规任务进度：{progress}", 
@@ -4730,7 +4741,7 @@ class AmongUsGUI:
             self.oxygen_sabotage_round = self.global_round
             self.oxygen_repaired = False
             if is_multiplayer:
-                self.oxygen_timeout = time.time() + 150  # 150秒后氧气耗尽
+                self.oxygen_timeout = time.time() + OXYGEN_TIMEOUT_SECONDS
             else:
                 self.oxygen_remaining_rounds = self.oxygen_timeout_rounds
             
@@ -4757,7 +4768,7 @@ class AmongUsGUI:
                     except Exception as e:
                         print(f"发送破坏消息失败: {e}")
                 self.add_log(f"🔧 {player.name}破坏了氧气系统！")
-                messagebox.showinfo("破坏成功", f"⚠️ 氧气系统已被破坏！\n船员需要在150秒内修复！")
+                messagebox.showinfo("破坏成功", f"⚠️ 氧气系统已被破坏！\n船员需要在{OXYGEN_TIMEOUT_SECONDS}秒内修复！")
             else:
                 # 单机模式：设置回合制冷却
                 self.sabotage_cooldown = self.sabotage_cooldown_rounds
@@ -4899,7 +4910,7 @@ class AmongUsGUI:
         # 联机模式：发送炸弹同步消息给其他客户端
         if is_multiplayer:
             # 计算爆炸时间
-            explode_time = time.time() + 60  # 1分钟后爆炸
+            explode_time = time.time() + BOMB_EXPLODE_SECONDS
             # 更新房间状态
             if self.room_state:
                 self.room_state.bomb_location = bomb_fixed_location
@@ -5566,7 +5577,7 @@ class AmongUsGUI:
         reason_text = ""
         if self.oxygen_sabotaged and not self.oxygen_repaired:
             if hasattr(self, 'is_multiplayer') and self.is_multiplayer:
-                reason_text = "⚠️ 氧气系统被破坏，船员未在150秒内完成修复，内鬼胜利！"
+                reason_text = f"⚠️ 氧气系统被破坏，船员未在{OXYGEN_TIMEOUT_SECONDS}秒内完成修复，内鬼胜利！"
             else:
                 reason_text = f"⚠️ 氧气系统在第{self.oxygen_sabotage_round}回合被破坏，船员未在2个回合内完成修复，内鬼胜利！"
         elif self.game.winner == "crewmate":
@@ -5593,7 +5604,7 @@ class AmongUsGUI:
             role_name = player.role.__class__.__name__
             # 显示船员任务完成情况
             if isinstance(player.role, Crewmate):
-                role_name += f" (完成{player.completed_tasks}/3任务)"
+                role_name += f" (完成{player.completed_tasks}/{CREWMATE_TASK_GOAL}任务)"
             
             player_label = tk.Label(
                 reveal_frame, 

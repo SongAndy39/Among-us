@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
 # 太空狼人杀 v2.0.0 打包配置
 # 入口改为 multiplayer.py（模式选择大厅），游戏进程由同一个 exe 通过 --game 参数复用。
 # pictures/ 需要随包分发，供摩斯密码与身体扫描任务读取。
@@ -45,3 +46,11 @@ coll = COLLECT(
     upx_exclude=[],
     name='太空狼人杀v2.0.0',
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='太空狼人杀v2.0.0.app',
+        icon=None,
+        bundle_identifier='com.songandy39.space-werewolf',
+    )
