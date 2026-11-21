@@ -45,13 +45,10 @@ jobs:
         include:
           - os: windows-latest
             name: windows
-            executable: 太空狼人杀v2.0.0.exe
           - os: ubuntu-latest
             name: linux
-            executable: 太空狼人杀v2.0.0
-          - os: macos-latest
+          - os: macos-15
             name: mac
-            executable: 太空狼人杀v2.0.0.app
 
     runs-on: ${{ matrix.os }}
 
@@ -72,35 +69,78 @@ jobs:
       - name: Install PyInstaller
         run: python -m pip install --upgrade pip pyinstaller
 
+      - name: Verify universal2 Python
+        if: runner.os == 'macOS'
+        run: |
+          PYTHON=$(python -c 'import sys; print(sys.executable)')
+          ARCHS=$(lipo -archs "$PYTHON")
+          echo "Python architectures: $ARCHS"
+          [[ " $ARCHS " == *" arm64 "* && " $ARCHS " == *" x86_64 "* ]]
+
       - name: Build executable
-        run: pyinstaller --clean --noconfirm "太空狼人杀.spec"
+        run: python -m PyInstaller --clean --noconfirm "太空狼人杀.spec"
 
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist/太空狼人杀v2.0.0/*" -DestinationPath "太空狼人杀-windows.zip"
+          Compress-Archive -Path "dist/Space Werewolf/*" -DestinationPath "Space-Werewolf-windows.zip"
 
       - name: Package Linux
         if: runner.os == 'Linux'
         run: |
-          tar -czf 太空狼人杀-linux.tar.gz -C dist 太空狼人杀v2.0.0
+          tar -czf Space-Werewolf-linux.tar.gz -C dist "Space Werewolf"
 
       - name: Package macOS
         if: runner.os == 'macOS'
         run: |
+          APP="dist/Space Werewolf.app"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Contents/Info.plist")
+          python - "$APP" "$EXECUTABLE" <<'PY'
+          import pathlib
+          import subprocess
+          import sys
+
+          app = pathlib.Path(sys.argv[1])
+          executable = sys.argv[2]
+          binaries = []
+          for path in app.rglob("*"):
+              if not path.is_file():
+                  continue
+              file_type = subprocess.run(
+                  ["file", "-b", str(path)],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout
+              if "Mach-O" not in file_type:
+                  continue
+              architectures = set(subprocess.check_output(
+                  ["lipo", "-archs", str(path)], text=True
+              ).split())
+              if not {"arm64", "x86_64"}.issubset(architectures):
+                  raise SystemExit(
+                      f"Not universal2: {path} ({sorted(architectures)})"
+                  )
+              binaries.append(path)
+
+          main_binary = app / "Contents" / "MacOS" / executable
+          if main_binary not in binaries:
+              raise SystemExit(f"App executable is not a Mach-O binary: {main_binary}")
+          print(f"Verified {len(binaries)} universal2 Mach-O binaries")
+          PY
           ditto -c -k --sequesterRsrc --keepParent \
-            "dist/太空狼人杀v2.0.0.app" \
-            "太空狼人杀-mac.zip"
+            "$APP" \
+            "Space-Werewolf-mac-universal2.zip"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-release
           path: |
-            太空狼人杀-windows.zip
-            太空狼人杀-linux.tar.gz
-            太空狼人杀-mac.zip
+            Space-Werewolf-windows.zip
+            Space-Werewolf-linux.tar.gz
+            Space-Werewolf-mac-universal2.zip
           if-no-files-found: error
 
   release:
@@ -122,32 +162,16 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Find update announcement
-        id: announcement
-        run: |
-          ANNOUNCEMENT_FILE=""
-          for file in *.md; do
-            if [[ "$file" == *"${GITHUB_REF_NAME}"* ]]; then
-              ANNOUNCEMENT_FILE="$file"
-              break
-            fi
-          done
-          echo "FILE=$ANNOUNCEMENT_FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Read announcement
-        if: steps.announcement.outputs.FILE != ''
-        id: announcement_content
-        run: |
-          BODY=$(cat "${{ steps.announcement.outputs.FILE }}" | sed 's/"/\\"/g' | tr '\n' ' ')
-          echo "BODY=$BODY" >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
-          name: Release ${{ steps.get_version.outputs.VERSION }}
-          body: ${{ steps.announcement_content.outputs.BODY || 'Cross-platform release built by GitHub Actions.' }}
+          name: Space Werewolf ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            Cross-platform release for Windows, Linux, and macOS.
+
+            The macOS application is a Universal 2 build supporting both Apple silicon (arm64) and Intel (x86_64).
           files: |
-            release-assets/太空狼人杀-windows.zip
-            release-assets/太空狼人杀-linux.tar.gz
-            release-assets/太空狼人杀-mac.zip
+            release-assets/Space-Werewolf-windows.zip
+            release-assets/Space-Werewolf-linux.tar.gz
+            release-assets/Space-Werewolf-mac-universal2.zip
